@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { isValidSession, SESSION_COOKIE_NAME } from "@/lib/auth";
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const token = req.cookies.get(SESSION_COOKIE_NAME)?.value;
   if (isValidSession(token)) return NextResponse.next();
 
