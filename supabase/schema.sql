@@ -56,10 +56,19 @@ create table oauth_tokens (
   updated_at timestamptz not null default now()
 );
 
+create table reports (
+  id uuid primary key default gen_random_uuid(),
+  business_id uuid not null references businesses(id) on delete cascade,
+  kind text not null,
+  content text not null,
+  created_at timestamptz not null default now()
+);
+
 create index idx_contacts_business_id on contacts(business_id);
 create index idx_drafts_business_id on drafts(business_id);
 create index idx_drafts_status on drafts(status);
 create index idx_communications_business_id on communications(business_id);
+create index idx_reports_business_id on reports(business_id);
 
 -- RLS enabled with no policies: only the service_role key (used server-side
 -- only, in lib/supabase/admin.ts) can read/write. Anon/browser access is
@@ -70,6 +79,7 @@ alter table contacts enable row level security;
 alter table drafts enable row level security;
 alter table communications enable row level security;
 alter table oauth_tokens enable row level security;
+alter table reports enable row level security;
 
 -- Re-seed the researched Old Town Tustin businesses (same data as the old
 -- /api/admin/seed endpoint, which this migration replaces).

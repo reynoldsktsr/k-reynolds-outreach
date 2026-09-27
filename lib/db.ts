@@ -30,6 +30,14 @@ export type Communication = {
   occurredAt: string;
 };
 
+export type Report = {
+  id: string;
+  businessId: string;
+  kind: "no-site-pitch" | "stack-analysis";
+  content: string;
+  createdAt: string;
+};
+
 export type Business = {
   id: string;
   name: string;
@@ -175,6 +183,69 @@ export async function createBusiness(data: {
     .single();
   if (error) throw error;
   return mapBusiness(row);
+}
+
+export async function updateBusinessFields(
+  id: string,
+  data: {
+    name: string;
+    category: string | null;
+    city: string | null;
+    address: string | null;
+    website: string | null;
+    gapSummary: string | null;
+    sourceNote: string | null;
+  },
+): Promise<void> {
+  const { error } = await supabaseAdmin()
+    .from("businesses")
+    .update({
+      name: data.name,
+      category: data.category,
+      city: data.city,
+      address: data.address,
+      website: data.website,
+      gap_summary: data.gapSummary,
+      source_note: data.sourceNote,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapReport(row: any): Report {
+  return {
+    id: row.id,
+    businessId: row.business_id,
+    kind: row.kind,
+    content: row.content,
+    createdAt: row.created_at,
+  };
+}
+
+export async function listReports(businessId: string): Promise<Report[]> {
+  const { data, error } = await supabaseAdmin()
+    .from("reports")
+    .select("*")
+    .eq("business_id", businessId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapReport);
+}
+
+export async function createReport(
+  businessId: string,
+  kind: Report["kind"],
+  content: string,
+): Promise<Report> {
+  const { data, error } = await supabaseAdmin()
+    .from("reports")
+    .insert({ business_id: businessId, kind, content })
+    .select()
+    .single();
+  if (error) throw error;
+  return mapReport(data);
 }
 
 export type QueueRow = { business: Business; draft: Draft; contact: Contact | null };

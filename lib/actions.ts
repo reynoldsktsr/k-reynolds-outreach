@@ -3,6 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { sendGmail } from "@/lib/gmail";
+import { getBusiness, createReport, updateBusinessFields } from "@/lib/db";
+import { analyzeBusiness } from "@/lib/analysis";
+import { checkDomainAvailability, type DomainStatus } from "@/lib/domains";
 
 export async function updateBusinessStatus(businessId: string, status: string) {
   const { error } = await supabaseAdmin()
@@ -10,6 +13,54 @@ export async function updateBusinessStatus(businessId: string, status: string) {
     .update({ status, updated_at: new Date().toISOString() })
     .eq("id", businessId);
   if (error) throw error;
+  revalidatePath("/");
+  revalidatePath(`/businesses/${businessId}`);
+}
+
+export async function generateReport(businessId: string) {
+  const business = await getBusiness(businessId);
+  if (!business) throw new Error("Business not found");
+
+  const result = await analyzeBusiness(business);
+  await createReport(businessId, result.kind, result.content);
+
+  if (business.contacts.length === 0 && (result.extractedEmail || result.extractedPhone)) {
+    const { error } = await supabaseAdmin().from("contacts").insert({
+      business_id: businessId,
+      email: result.extractedEmail,
+      phone: result.extractedPhone,
+    });
+    if (error) throw error;
+  }
+
+  revalidatePath(`/businesses/${businessId}`);
+}
+
+export async function checkDomains(businessName: string): Promise<DomainStatus[]> {
+  return checkDomainAvailability(businessName);
+}
+
+export async function editBusiness(
+  businessId: string,
+  data: {
+    name: string;
+    category: string;
+    city: string;
+    address: string;
+    website: string;
+    gapSummary: string;
+    sourceNote: string;
+  },
+) {
+  await updateBusinessFields(businessId, {
+    name: data.name,
+    category: data.category || null,
+    city: data.city || null,
+    address: data.address || null,
+    website: data.website || null,
+    gapSummary: data.gapSummary || null,
+    sourceNote: data.sourceNote || null,
+  });
   revalidatePath("/");
   revalidatePath(`/businesses/${businessId}`);
 }

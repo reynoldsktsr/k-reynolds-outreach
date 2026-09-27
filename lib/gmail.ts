@@ -11,7 +11,7 @@ export function getAuthUrl() {
     response_type: "code",
     access_type: "offline",
     prompt: "consent",
-    scope: "https://www.googleapis.com/auth/gmail.send",
+    scope: "https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/userinfo.email",
   });
   return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
 }
