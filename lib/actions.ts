@@ -1,15 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getBusiness, saveBusiness } from "@/lib/db";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { sendGmail } from "@/lib/gmail";
 
 export async function updateBusinessStatus(businessId: string, status: string) {
-  const business = await getBusiness(businessId);
-  if (!business) throw new Error("Business not found");
-  business.status = status;
-  business.updatedAt = new Date().toISOString();
-  await saveBusiness(business);
+  const { error } = await supabaseAdmin()
+    .from("businesses")
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq("id", businessId);
+  if (error) throw error;
   revalidatePath("/");
   revalidatePath(`/businesses/${businessId}`);
 }
@@ -18,17 +18,14 @@ export async function createContact(
   businessId: string,
   data: { name?: string; email?: string; phone?: string; role?: string },
 ) {
-  const business = await getBusiness(businessId);
-  if (!business) throw new Error("Business not found");
-  business.contacts.push({
-    id: crypto.randomUUID(),
+  const { error } = await supabaseAdmin().from("contacts").insert({
+    business_id: businessId,
     name: data.name || null,
     email: data.email || null,
     phone: data.phone || null,
     role: data.role || null,
   });
-  business.updatedAt = new Date().toISOString();
-  await saveBusiness(business);
+  if (error) throw error;
   revalidatePath(`/businesses/${businessId}`);
 }
 
@@ -36,68 +33,75 @@ export async function createDraft(
   businessId: string,
   data: { contactId?: string | null; subject: string; body: string },
 ) {
-  const business = await getBusiness(businessId);
-  if (!business) throw new Error("Business not found");
-  const now = new Date().toISOString();
-  business.drafts.unshift({
-    id: crypto.randomUUID(),
-    contactId: data.contactId ?? null,
+  const db = supabaseAdmin();
+  const { error: draftErr } = await db.from("drafts").insert({
+    business_id: businessId,
+    contact_id: data.contactId ?? null,
     subject: data.subject,
     body: data.body,
     status: "pending",
-    createdAt: now,
-    reviewedAt: null,
-    sentAt: null,
   });
-  business.status = "drafted";
-  business.updatedAt = now;
-  await saveBusiness(business);
+  if (draftErr) throw draftErr;
+
+  const { error: bizErr } = await db
+    .from("businesses")
+    .update({ status: "drafted", updated_at: new Date().toISOString() })
+    .eq("id", businessId);
+  if (bizErr) throw bizErr;
+
   revalidatePath("/queue");
   revalidatePath("/");
   revalidatePath(`/businesses/${businessId}`);
 }
 
 export async function discardDraft(businessId: string, draftId: string) {
-  const business = await getBusiness(businessId);
-  if (!business) throw new Error("Business not found");
-  const draft = business.drafts.find((d) => d.id === draftId);
-  if (draft) {
-    draft.status = "discarded";
-    draft.reviewedAt = new Date().toISOString();
-    await saveBusiness(business);
-  }
+  const { error } = await supabaseAdmin()
+    .from("drafts")
+    .update({ status: "discarded", reviewed_at: new Date().toISOString() })
+    .eq("id", draftId);
+  if (error) throw error;
   revalidatePath("/queue");
+  revalidatePath(`/businesses/${businessId}`);
 }
 
 export async function approveAndSendDraft(businessId: string, draftId: string) {
-  const business = await getBusiness(businessId);
-  if (!business) throw new Error("Business not found");
-  const draft = business.drafts.find((d) => d.id === draftId);
-  if (!draft) throw new Error("Draft not found");
-  const contact = business.contacts.find((c) => c.id === draft.contactId) ?? null;
-  if (!contact?.email) {
+  const db = supabaseAdmin();
+  const { data: draft, error: draftErr } = await db
+    .from("drafts")
+    .select("*, contacts(*)")
+    .eq("id", draftId)
+    .single();
+  if (draftErr) throw draftErr;
+  if (!draft.contacts?.email) {
     throw new Error("This draft has no contact email on file yet — add one before sending.");
   }
 
-  await sendGmail({ to: contact.email, subject: draft.subject, body: draft.body });
+  await sendGmail({ to: draft.contacts.email, subject: draft.subject, body: draft.body });
 
   const now = new Date().toISOString();
-  draft.status = "sent";
-  draft.reviewedAt = now;
-  draft.sentAt = now;
-  business.communications.unshift({
-    id: crypto.randomUUID(),
-    contactId: contact.id,
-    draftId: draft.id,
+  const { error: updateErr } = await db
+    .from("drafts")
+    .update({ status: "sent", reviewed_at: now, sent_at: now })
+    .eq("id", draftId);
+  if (updateErr) throw updateErr;
+
+  const { error: commErr } = await db.from("communications").insert({
+    business_id: businessId,
+    contact_id: draft.contact_id,
+    draft_id: draftId,
     direction: "outbound",
     channel: "email",
     subject: draft.subject,
     body: draft.body,
-    occurredAt: now,
+    occurred_at: now,
   });
-  business.status = "contacted";
-  business.updatedAt = now;
-  await saveBusiness(business);
+  if (commErr) throw commErr;
+
+  const { error: bizErr } = await db
+    .from("businesses")
+    .update({ status: "contacted", updated_at: now })
+    .eq("id", businessId);
+  if (bizErr) throw bizErr;
 
   revalidatePath("/queue");
   revalidatePath("/");

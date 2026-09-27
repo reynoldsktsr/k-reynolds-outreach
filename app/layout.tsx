@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
+import { signOut } from "@/lib/auth-actions";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -66,6 +67,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                 booking
               </a>
             </span>
+            <form action={signOut}>
+              <button className="text-neutral-400 hover:text-neutral-700">Sign out</button>
+            </form>
           </nav>
         </header>
         <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-8">{children}</main>

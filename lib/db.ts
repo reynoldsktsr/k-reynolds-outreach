@@ -1,4 +1,4 @@
-import { getStore } from "@netlify/blobs";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export type Contact = {
   id: string;
@@ -47,11 +47,64 @@ export type Business = {
   communications: Communication[];
 };
 
-const BUSINESS_PREFIX = "business/";
 const STATUS_ORDER = ["new-lead", "drafted", "contacted", "responded"];
 
-export function store() {
-  return getStore("outreach");
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapContact(row: any): Contact {
+  return { id: row.id, name: row.name, email: row.email, phone: row.phone, role: row.role };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapDraft(row: any): Draft {
+  return {
+    id: row.id,
+    contactId: row.contact_id,
+    subject: row.subject,
+    body: row.body,
+    status: row.status,
+    createdAt: row.created_at,
+    reviewedAt: row.reviewed_at,
+    sentAt: row.sent_at,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapCommunication(row: any): Communication {
+  return {
+    id: row.id,
+    contactId: row.contact_id,
+    draftId: row.draft_id,
+    direction: row.direction,
+    channel: row.channel,
+    subject: row.subject,
+    body: row.body,
+    occurredAt: row.occurred_at,
+  };
+}
+
+function mapBusiness(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  row: any,
+  contacts: Contact[] = [],
+  drafts: Draft[] = [],
+  communications: Communication[] = [],
+): Business {
+  return {
+    id: row.id,
+    name: row.name,
+    category: row.category,
+    city: row.city,
+    address: row.address,
+    website: row.website,
+    sourceNote: row.source_note,
+    gapSummary: row.gap_summary,
+    status: row.status,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    contacts,
+    drafts,
+    communications,
+  };
 }
 
 function sortBusinesses(a: Business, b: Business) {
@@ -64,20 +117,36 @@ function sortBusinesses(a: Business, b: Business) {
 }
 
 export async function listBusinesses(): Promise<Business[]> {
-  const s = store();
-  const { blobs } = await s.list({ prefix: BUSINESS_PREFIX });
-  const businesses = await Promise.all(
-    blobs.map((b) => s.get(b.key, { type: "json" }) as Promise<Business | null>),
-  );
-  return businesses.filter((b): b is Business => b != null).sort(sortBusinesses);
+  const { data, error } = await supabaseAdmin().from("businesses").select("*");
+  if (error) throw error;
+  return (data ?? []).map((r) => mapBusiness(r)).sort(sortBusinesses);
 }
 
 export async function getBusiness(id: string): Promise<Business | null> {
-  return (await store().get(BUSINESS_PREFIX + id, { type: "json" })) as Business | null;
-}
+  const db = supabaseAdmin();
+  const [
+    { data: biz, error: bizErr },
+    { data: contacts, error: cErr },
+    { data: drafts, error: dErr },
+    { data: comms, error: coErr },
+  ] = await Promise.all([
+    db.from("businesses").select("*").eq("id", id).maybeSingle(),
+    db.from("contacts").select("*").eq("business_id", id).order("id"),
+    db.from("drafts").select("*").eq("business_id", id).order("created_at", { ascending: false }),
+    db.from("communications").select("*").eq("business_id", id).order("occurred_at", { ascending: false }),
+  ]);
+  if (bizErr) throw bizErr;
+  if (!biz) return null;
+  if (cErr) throw cErr;
+  if (dErr) throw dErr;
+  if (coErr) throw coErr;
 
-export async function saveBusiness(business: Business): Promise<void> {
-  await store().setJSON(BUSINESS_PREFIX + business.id, business);
+  return mapBusiness(
+    biz,
+    (contacts ?? []).map(mapContact),
+    (drafts ?? []).map(mapDraft),
+    (comms ?? []).map(mapCommunication),
+  );
 }
 
 export async function createBusiness(data: {
@@ -90,40 +159,38 @@ export async function createBusiness(data: {
   gapSummary?: string | null;
   status?: string;
 }): Promise<Business> {
-  const now = new Date().toISOString();
-  const business: Business = {
-    id: crypto.randomUUID(),
-    name: data.name,
-    category: data.category ?? null,
-    city: data.city ?? null,
-    address: data.address ?? null,
-    website: data.website ?? null,
-    sourceNote: data.sourceNote ?? null,
-    gapSummary: data.gapSummary ?? null,
-    status: data.status ?? "new-lead",
-    createdAt: now,
-    updatedAt: now,
-    contacts: [],
-    drafts: [],
-    communications: [],
-  };
-  await saveBusiness(business);
-  return business;
+  const { data: row, error } = await supabaseAdmin()
+    .from("businesses")
+    .insert({
+      name: data.name,
+      category: data.category ?? null,
+      city: data.city ?? null,
+      address: data.address ?? null,
+      website: data.website ?? null,
+      source_note: data.sourceNote ?? null,
+      gap_summary: data.gapSummary ?? null,
+      status: data.status ?? "new-lead",
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return mapBusiness(row);
 }
 
 export type QueueRow = { business: Business; draft: Draft; contact: Contact | null };
 
 export async function listPendingDrafts(): Promise<QueueRow[]> {
-  const businesses = await listBusinesses();
-  const rows: QueueRow[] = [];
-  for (const business of businesses) {
-    for (const draft of business.drafts) {
-      if (draft.status === "pending") {
-        const contact = business.contacts.find((c) => c.id === draft.contactId) ?? null;
-        rows.push({ business, draft, contact });
-      }
-    }
-  }
-  rows.sort((a, b) => a.draft.createdAt.localeCompare(b.draft.createdAt));
-  return rows;
+  const { data, error } = await supabaseAdmin()
+    .from("drafts")
+    .select("*, businesses(*), contacts(*)")
+    .eq("status", "pending")
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (data ?? []).map((row: any) => ({
+    business: mapBusiness(row.businesses),
+    draft: mapDraft(row),
+    contact: row.contacts ? mapContact(row.contacts) : null,
+  }));
 }

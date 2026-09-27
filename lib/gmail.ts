@@ -1,11 +1,8 @@
-import { store } from "@/lib/db";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 const CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
 const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET!;
 const REDIRECT_URI = process.env.GOOGLE_OAUTH_REDIRECT_URI!;
-const OAUTH_KEY = "settings/oauth-google";
-
-type GoogleTokenRecord = { refreshToken: string; accountEmail: string | null };
 
 export function getAuthUrl() {
   const params = new URLSearchParams({
@@ -56,18 +53,24 @@ export async function exchangeCodeForTokens(code: string) {
     { headers: { Authorization: `Bearer ${tokens.access_token}` } },
   );
 
-  const record: GoogleTokenRecord = {
-    refreshToken: tokens.refresh_token,
-    accountEmail: userinfo.email ?? null,
-  };
-  await store().setJSON(OAUTH_KEY, record);
+  const { error } = await supabaseAdmin().from("oauth_tokens").upsert({
+    provider: "google",
+    refresh_token: tokens.refresh_token,
+    account_email: userinfo.email ?? null,
+    updated_at: new Date().toISOString(),
+  });
+  if (error) throw error;
 
-  return record.accountEmail;
+  return userinfo.email ?? null;
 }
 
 export async function getConnectedAccountEmail(): Promise<string | null> {
-  const record = (await store().get(OAUTH_KEY, { type: "json" })) as GoogleTokenRecord | null;
-  return record?.accountEmail ?? null;
+  const { data } = await supabaseAdmin()
+    .from("oauth_tokens")
+    .select("account_email")
+    .eq("provider", "google")
+    .maybeSingle();
+  return data?.account_email ?? null;
 }
 
 async function getAccessToken(refreshToken: string) {
@@ -102,13 +105,17 @@ function toRawMessage(to: string, subject: string, body: string, fromEmail: stri
 }
 
 export async function sendGmail({ to, subject, body }: { to: string; subject: string; body: string }) {
-  const record = (await store().get(OAUTH_KEY, { type: "json" })) as GoogleTokenRecord | null;
+  const { data: record } = await supabaseAdmin()
+    .from("oauth_tokens")
+    .select("refresh_token, account_email")
+    .eq("provider", "google")
+    .maybeSingle();
   if (!record) {
     throw new Error("Gmail isn't connected yet. Visit /settings to connect your @k-reynolds.com account.");
   }
 
-  const accessToken = await getAccessToken(record.refreshToken);
-  const raw = toRawMessage(to, subject, body, record.accountEmail ?? "me");
+  const accessToken = await getAccessToken(record.refresh_token);
+  const raw = toRawMessage(to, subject, body, record.account_email ?? "me");
 
   await fetchJson("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
     method: "POST",
