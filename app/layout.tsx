@@ -38,16 +38,31 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               Settings
             </Link>
             <span className="ml-auto text-neutral-400">
-              Demos:{" "}
-              <a href="/demos/coffee-shop" className="hover:text-neutral-700">
+              Demo sites:{" "}
+              <a
+                href="https://kr-demo-coffee-shop.netlify.app"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-neutral-700"
+              >
                 coffee
               </a>{" "}
               ·{" "}
-              <a href="/demos/restaurant" className="hover:text-neutral-700">
+              <a
+                href="https://kr-demo-restaurant.netlify.app"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-neutral-700"
+              >
                 restaurant
               </a>{" "}
               ·{" "}
-              <a href="/demos/booking" className="hover:text-neutral-700">
+              <a
+                href="https://kr-demo-booking.netlify.app"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-neutral-700"
+              >
                 booking
               </a>
             </span>
