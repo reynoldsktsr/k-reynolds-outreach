@@ -40,7 +40,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <span className="ml-auto text-neutral-400">
               Demo sites:{" "}
               <a
-                href="https://kr-demo-coffee-shop.netlify.app"
+                href="https://k-reynolds-demo-coffee.netlify.app"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:text-neutral-700"
@@ -49,7 +49,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               </a>{" "}
               ·{" "}
               <a
-                href="https://kr-demo-restaurant.netlify.app"
+                href="https://k-reynolds-demo-restaurant.netlify.app"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:text-neutral-700"
@@ -58,7 +58,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               </a>{" "}
               ·{" "}
               <a
-                href="https://kr-demo-booking.netlify.app"
+                href="https://k-reynolds-demo-booking.netlify.app"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:text-neutral-700"
