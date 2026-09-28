@@ -155,6 +155,20 @@ export async function createDraft(
   revalidatePath(`/businesses/${businessId}`);
 }
 
+export async function updateDraft(
+  businessId: string,
+  draftId: string,
+  data: { subject: string; body: string },
+) {
+  const { error } = await supabaseAdmin()
+    .from("drafts")
+    .update({ subject: data.subject, body: data.body })
+    .eq("id", draftId);
+  if (error) throw error;
+  revalidatePath("/queue");
+  revalidatePath(`/businesses/${businessId}`);
+}
+
 export async function discardDraft(businessId: string, draftId: string) {
   const { error } = await supabaseAdmin()
     .from("drafts")

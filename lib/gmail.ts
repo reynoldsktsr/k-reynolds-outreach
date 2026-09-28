@@ -87,15 +87,46 @@ async function getAccessToken(refreshToken: string) {
   return tokens.access_token;
 }
 
+// Draft bodies are HTML (rich-text edited) - sending as text/plain would show
+// raw tags in the recipient's inbox, so this builds a real multipart/
+// alternative message with a plain-text fallback derived from the HTML.
+function htmlToPlainText(html: string): string {
+  return html
+    .replace(/<(p|div|li|br)[^>]*>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function toRawMessage(to: string, subject: string, body: string, fromEmail: string) {
+  const boundary = `----=_boundary_${Date.now()}`;
+  const plainText = htmlToPlainText(body);
   const lines = [
     `From: ${fromEmail}`,
     `To: ${to}`,
     `Subject: ${subject}`,
     "MIME-Version: 1.0",
+    `Content-Type: multipart/alternative; boundary="${boundary}"`,
+    "",
+    `--${boundary}`,
     "Content-Type: text/plain; charset=utf-8",
+    "Content-Transfer-Encoding: 7bit",
+    "",
+    plainText,
+    "",
+    `--${boundary}`,
+    "Content-Type: text/html; charset=utf-8",
+    "Content-Transfer-Encoding: 7bit",
     "",
     body,
+    "",
+    `--${boundary}--`,
   ];
   return Buffer.from(lines.join("\r\n"))
     .toString("base64")

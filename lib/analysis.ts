@@ -219,10 +219,27 @@ a call to discuss next steps."
 Naturally include this example link once, where it fits: {{DEMO_URL}} - framed as "here's a quick example of \
 what that could look like," not a hard sell.
 
+Write it so it does NOT read as AI-written. Specifically:
+- No em dashes, anywhere. Use a period, "and," or "but" instead.
+- No "isn't X, it's Y" or "not just X, but Y" contrast constructions - that rhetorical balance is a dead \
+giveaway. Just say the thing plainly.
+- No stock hedges or closers: "I hope this finds you well," "I wanted to reach out," "just wanted to flag," \
+"no pressure at all," "happy to hear," "circle back," "touch base," "don't hesitate to," "best regards." If \
+you're about to write one of these, cut it or say it the way you'd actually say it out loud.
+- Vary sentence length on purpose - a short sentence next to a longer one. Don't give every point the same \
+tidy shape; real emails are a little uneven.
+- Skip the perfectly parallel three-part lists. Say what you noticed, then move on - don't explain it three \
+different ways.
+- Contractions throughout (it's, don't, you're, that'll). Write like you're typing this quickly, not drafting \
+a pitch deck.
+
+Output as HTML, using only <p>, <strong>, <em>, <a href="...">, <ul>, <li> - short paragraphs, no headers, no \
+inline styles, no markdown syntax like ** or _.
+
 Output exactly two parts, in this order, nothing else:
-SUBJECT: <subject line>
+SUBJECT: <subject line, plain text>
 BODY:
-<the email body>`;
+<the email body, as HTML>`;
 
 export async function generatePitchEmail(
   business: Business,

@@ -2,19 +2,18 @@ import { notFound } from "next/navigation";
 import { getBusiness, listReports } from "@/lib/db";
 import {
   createContact,
-  createDraft,
   updateBusinessStatus,
   editBusiness,
   generateReport,
   findContact,
   generatePitch,
-  approveAndSendDraft,
-  discardDraft,
 } from "@/lib/actions";
 import { pickDemoSite } from "@/lib/analysis";
 import { DomainCheck } from "./domain-check";
 import { SubmitButton } from "./submit-button";
 import { ReportContent } from "./report-content";
+import { PendingDraftCard } from "./pending-draft-card";
+import { NewDraftComposer } from "./new-draft-composer";
 
 export const dynamic = "force-dynamic";
 
@@ -41,16 +40,6 @@ export default async function BusinessDetailPage({
       email: String(formData.get("email") ?? ""),
       phone: String(formData.get("phone") ?? ""),
       role: String(formData.get("role") ?? ""),
-    });
-  }
-
-  async function addDraft(formData: FormData) {
-    "use server";
-    const contactId = formData.get("contactId");
-    await createDraft(businessId, {
-      contactId: contactId ? String(contactId) : null,
-      subject: String(formData.get("subject") ?? ""),
-      body: String(formData.get("body") ?? ""),
     });
   }
 
@@ -85,16 +74,6 @@ export default async function BusinessDetailPage({
   async function runPitchGeneration() {
     "use server";
     await generatePitch(businessId);
-  }
-
-  async function sendDraft(formData: FormData) {
-    "use server";
-    await approveAndSendDraft(businessId, String(formData.get("draftId")));
-  }
-
-  async function discardThisDraft(formData: FormData) {
-    "use server";
-    await discardDraft(businessId, String(formData.get("draftId")));
   }
 
   const demoSite = pickDemoSite(business.category);
@@ -310,32 +289,7 @@ export default async function BusinessDetailPage({
           <summary className="cursor-pointer text-sm font-medium text-neutral-500 hover:text-neutral-800">
             Or write one manually
           </summary>
-          <form action={addDraft} className="mt-3 flex flex-col gap-2.5 text-sm">
-          <select name="contactId" className="rounded-md border border-neutral-300 px-3 py-2">
-            <option value="">No contact selected</option>
-            {business.contacts.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name ?? c.email} {c.email ? `(${c.email})` : ""}
-              </option>
-            ))}
-          </select>
-          <input
-            name="subject"
-            placeholder="Subject"
-            required
-            className="rounded-md border border-neutral-300 px-3 py-2"
-          />
-          <textarea
-            name="body"
-            placeholder="Email body"
-            required
-            rows={7}
-            className="rounded-md border border-neutral-300 px-3 py-2 leading-relaxed"
-          />
-          <button className="self-start rounded-md bg-neutral-900 px-4 py-2 font-medium text-white hover:bg-neutral-700">
-            Save to review queue
-          </button>
-          </form>
+          <NewDraftComposer businessId={businessId} contacts={business.contacts} />
         </details>
       </section>
 
@@ -343,32 +297,21 @@ export default async function BusinessDetailPage({
         <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
           <h2 className="text-base font-semibold">Pending drafts</h2>
           <p className="mt-1 text-sm text-neutral-600">
-            Read the whole thing before sending — this is the actual email, not a preview.
+            Read the whole thing before sending, and edit anything that&apos;s off — this is the actual email,
+            not a preview.
           </p>
           <ul className="mt-4 flex flex-col gap-4">
             {business.drafts
               .filter((d) => d.status === "pending")
               .map((d) => (
-                <li key={d.id} className="rounded-lg border border-neutral-200 p-4">
-                  <p className="text-sm font-semibold text-neutral-900">{d.subject}</p>
-                  <p className="mt-2 whitespace-pre-wrap text-[15px] leading-relaxed text-neutral-800">
-                    {d.body}
-                  </p>
-                  <div className="mt-3 flex gap-2">
-                    <form action={sendDraft}>
-                      <input type="hidden" name="draftId" value={d.id} />
-                      <SubmitButton
-                        idleLabel={business.contacts[0]?.email ? "Approve & send" : "No contact email on file"}
-                        pendingLabel="Sending…"
-                        disabled={!business.contacts[0]?.email}
-                      />
-                    </form>
-                    <form action={discardThisDraft}>
-                      <input type="hidden" name="draftId" value={d.id} />
-                      <SubmitButton idleLabel="Discard" pendingLabel="Discarding…" variant="secondary" />
-                    </form>
-                  </div>
-                </li>
+                <PendingDraftCard
+                  key={d.id}
+                  businessId={businessId}
+                  draftId={d.id}
+                  initialSubject={d.subject}
+                  initialBody={d.body}
+                  canSend={Boolean(business.contacts[0]?.email)}
+                />
               ))}
           </ul>
         </section>

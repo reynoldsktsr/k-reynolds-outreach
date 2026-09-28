@@ -44,9 +44,10 @@ export default async function QueuePage() {
                 </div>
               </div>
               <p className="mt-4 text-sm font-semibold text-neutral-900">{draft.subject}</p>
-              <pre className="mt-1.5 whitespace-pre-wrap rounded-lg bg-neutral-50 p-4 font-sans text-[15px] leading-relaxed text-neutral-800">
-                {draft.body}
-              </pre>
+              <div
+                className="prose prose-sm prose-neutral mt-1.5 max-w-none rounded-lg bg-neutral-50 p-4 leading-relaxed"
+                dangerouslySetInnerHTML={{ __html: draft.body }}
+              />
               <div className="mt-4 flex gap-2">
                 <form action={send}>
                   <input type="hidden" name="businessId" value={business.id} />
