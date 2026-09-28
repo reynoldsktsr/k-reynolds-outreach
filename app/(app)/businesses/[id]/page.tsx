@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { getBusiness, listReports } from "@/lib/db";
 import { createContact, createDraft, updateBusinessStatus, editBusiness, generateReport } from "@/lib/actions";
 import { DomainCheck } from "./domain-check";
+import { AnalysisButton } from "./analysis-button";
+import { ReportContent } from "./report-content";
 
 export const dynamic = "force-dynamic";
 
@@ -191,9 +193,7 @@ export default async function BusinessDetailPage({
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold">Analysis reports</h2>
           <form action={runAnalysis}>
-            <button className="rounded-md bg-neutral-900 px-3.5 py-1.5 text-sm font-medium text-white hover:bg-neutral-700">
-              {business.website ? "Run stack analysis" : "Generate pitch report"}
-            </button>
+            <AnalysisButton hasWebsite={!!business.website} />
           </form>
         </div>
         <p className="mt-1 text-sm text-neutral-600">
@@ -209,9 +209,7 @@ export default async function BusinessDetailPage({
                 <span className="font-medium text-neutral-700">{REPORT_LABELS[r.kind] ?? r.kind}</span>
                 <span>{new Date(r.createdAt).toLocaleString()}</span>
               </div>
-              <p className="mt-2 whitespace-pre-wrap text-[15px] leading-relaxed text-neutral-800">
-                {r.content}
-              </p>
+              <ReportContent content={r.content} />
             </li>
           ))}
         </ul>
