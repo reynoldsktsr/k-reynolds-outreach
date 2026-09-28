@@ -4,7 +4,7 @@ import { getTestBusiness } from "./test-data";
 test("shows stat cards and the businesses table, and search narrows results", async ({ page }) => {
   const { businessName } = getTestBusiness();
 
-  await page.goto("/");
+  await page.goto("/businesses");
   await expect(page.getByRole("heading", { name: "Businesses" })).toBeVisible();
 
   // Stat cards
@@ -27,7 +27,7 @@ test("shows stat cards and the businesses table, and search narrows results", as
 });
 
 test("sorting by business name toggles order", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/businesses");
   const header = page.getByRole("button", { name: /Business/ });
   await header.click();
   await expect(page.locator("thead").getByText("↑")).toBeVisible();
@@ -37,7 +37,7 @@ test("sorting by business name toggles order", async ({ page }) => {
 
 test("clicking a business row navigates to its detail page", async ({ page }) => {
   const { businessName } = getTestBusiness();
-  await page.goto("/");
+  await page.goto("/businesses");
   await page.getByPlaceholder("Search businesses...").fill(businessName);
   await page.getByRole("link", { name: businessName }).click();
   await expect(page.getByRole("heading", { name: businessName })).toBeVisible();

@@ -6,7 +6,7 @@ import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
 
 const PAGE_TITLES: { match: (path: string) => boolean; title: string }[] = [
-  { match: (p) => p === "/", title: "Businesses" },
+  { match: (p) => p === "/businesses", title: "Businesses" },
   { match: (p) => p.startsWith("/businesses/"), title: "Business detail" },
   { match: (p) => p.startsWith("/queue"), title: "Review queue" },
   { match: (p) => p.startsWith("/settings"), title: "Settings" },

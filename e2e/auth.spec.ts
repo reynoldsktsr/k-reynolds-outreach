@@ -28,6 +28,6 @@ test("signs in with valid credentials and reaches the dashboard", async ({ page 
   await page.getByPlaceholder("Password").fill(process.env.E2E_ADMIN_PASSWORD!);
   await page.getByRole("button", { name: "Sign in" }).click();
 
-  await expect(page).toHaveURL("/");
+  await expect(page).toHaveURL("/businesses");
   await expect(page.getByRole("heading", { name: "Businesses" })).toBeVisible();
 });

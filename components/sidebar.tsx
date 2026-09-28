@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { signOut } from "@/lib/auth-actions";
 
 const NAV_ITEMS = [
-  { href: "/", label: "Businesses", exact: true, icon: BusinessesIcon },
+  { href: "/businesses", label: "Businesses", exact: false, icon: BusinessesIcon },
   { href: "/queue", label: "Review queue", exact: false, icon: QueueIcon },
   { href: "/settings", label: "Settings", exact: false, icon: SettingsIcon },
 ];

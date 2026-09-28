@@ -18,7 +18,7 @@ export default async function LoginPage({
           </p>
         )}
         <form action={signIn} className="mt-5 flex flex-col gap-2.5">
-          <input type="hidden" name="next" value={params.next ?? "/"} />
+          <input type="hidden" name="next" value={params.next ?? "/businesses"} />
           <input type="email" name="email" placeholder="Email" autoFocus required className="input" />
           <input type="password" name="password" placeholder="Password" required className="input" />
           <button className="btn-primary mt-1">Sign in</button>

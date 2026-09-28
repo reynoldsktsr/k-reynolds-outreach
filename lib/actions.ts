@@ -13,7 +13,7 @@ export async function updateBusinessStatus(businessId: string, status: string) {
     .update({ status, updated_at: new Date().toISOString() })
     .eq("id", businessId);
   if (error) throw error;
-  revalidatePath("/");
+  revalidatePath("/businesses");
   revalidatePath(`/businesses/${businessId}`);
 }
 
@@ -86,7 +86,7 @@ export async function generatePitch(businessId: string) {
   if (bizErr) throw bizErr;
 
   revalidatePath("/queue");
-  revalidatePath("/");
+  revalidatePath("/businesses");
   revalidatePath(`/businesses/${businessId}`);
 }
 
@@ -111,7 +111,7 @@ export async function editBusiness(
     gapSummary: data.gapSummary || null,
     sourceNote: data.sourceNote || null,
   });
-  revalidatePath("/");
+  revalidatePath("/businesses");
   revalidatePath(`/businesses/${businessId}`);
 }
 
@@ -151,7 +151,7 @@ export async function createDraft(
   if (bizErr) throw bizErr;
 
   revalidatePath("/queue");
-  revalidatePath("/");
+  revalidatePath("/businesses");
   revalidatePath(`/businesses/${businessId}`);
 }
 
@@ -237,6 +237,6 @@ export async function approveAndSendDraft(businessId: string, draftId: string) {
   if (bizErr) throw bizErr;
 
   revalidatePath("/queue");
-  revalidatePath("/");
+  revalidatePath("/businesses");
   revalidatePath(`/businesses/${businessId}`);
 }
