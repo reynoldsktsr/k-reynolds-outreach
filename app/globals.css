@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
+@import "../vendor/command-palette/style.css";
 
 /* Class-based dark mode (toggled via .dark on <html>), matching the
    admin-ui-kit design system this app's layout is adapted from. */

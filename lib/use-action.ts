@@ -12,11 +12,17 @@ export function useServerAction() {
   const [isPending, startTransition] = useTransition();
   const { showToast } = useToast();
 
-  function run(fn: () => Promise<void>, opts?: { successMessage?: string; errorPrefix?: string }) {
+  function run<T>(
+    fn: () => Promise<T>,
+    opts?: { successMessage?: string | ((result: T) => string); errorPrefix?: string },
+  ) {
     startTransition(async () => {
       try {
-        await fn();
-        if (opts?.successMessage) showToast(opts.successMessage, "success");
+        const result = await fn();
+        if (opts?.successMessage) {
+          const message = typeof opts.successMessage === "function" ? opts.successMessage(result) : opts.successMessage;
+          showToast(message, "success");
+        }
       } catch (err) {
         const message = err instanceof Error ? err.message : "Something went wrong.";
         showToast(opts?.errorPrefix ? `${opts.errorPrefix}: ${message}` : message, "error");

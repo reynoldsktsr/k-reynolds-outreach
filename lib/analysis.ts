@@ -71,7 +71,7 @@ didn't find). Do not fabricate one.
 
 Write 250-400 words, plain language, grounded only in what's actually in the HTML.`;
 
-function extractContactMarkers(text: string): { content: string; email: string | null; phone: string | null } {
+export function extractContactMarkers(text: string): { content: string; email: string | null; phone: string | null } {
   const emailMatch = text.match(/^CONTACT_EMAIL:\s*(.+)$/m);
   const phoneMatch = text.match(/^CONTACT_PHONE:\s*(.+)$/m);
   const content = text
@@ -184,30 +184,65 @@ const DEMO_SITES = [
   {
     label: "coffee shop",
     url: "https://k-reynolds-demo-coffee.netlify.app",
-    keywords: ["coffee", "cafe", "café", "bakery", "record", "music", "clothing", "jewel", "florist", "flower", "retail", "furrier", "shop", "store"],
+    // Deliberately no bare "shop"/"store" here - both are common enough as
+    // the second word of an unrelated category ("barber shop", "repair
+    // shop") that they'd win the match before a more specific keyword
+    // further down the list ever gets checked. Specific retail nouns only.
+    keywords: [
+      "coffee", "cafe", "café", "bakery", "record", "music", "clothing", "jewelry", "jeweler", "florist",
+      "flower", "retail", "furrier", "boutique", "gift", "toy", "toys", "books", "bookstore", "grocer",
+      "grocery", "market", "pet", "hardware", "furniture", "vape", "smoke", "liquor", "wine", "deli",
+    ],
   },
   {
     label: "restaurant",
     url: "https://k-reynolds-demo-restaurant.netlify.app",
-    keywords: ["restaurant", "udon", "dining", "eatery", "bistro", "kitchen", "food"],
+    keywords: [
+      "restaurant", "udon", "dining", "eatery", "bistro", "kitchen", "food", "pizza", "sushi", "taco",
+      "grill", "diner", "bar", "pub", "brewery", "catering", "bbq", "noodle", "ramen",
+    ],
   },
   {
     label: "salon/spa/booking",
     url: "https://k-reynolds-demo-booking.netlify.app",
-    keywords: ["salon", "spa", "repair", "watch", "appointment", "massage", "barber", "fitness", "studio"],
+    keywords: [
+      "salon", "spa", "repair", "watch", "appointment", "massage", "barber", "fitness", "studio", "gym",
+      "yoga", "nail", "nails", "tattoo", "cleaning", "landscaping", "landscaper", "lawn", "plumbing",
+      "plumber", "electrician", "electrical", "hvac", "contractor",
+      // Professional services genuinely need booking/scheduling more than a
+      // storefront or a menu, so they fit this demo best of the three even
+      // though it wasn't originally built with them in mind.
+      "law", "legal", "attorney", "dental", "dentist", "doctor", "clinic", "medical", "therapy",
+      "therapist", "counseling", "counselor", "accountant", "accounting", "tax", "consulting",
+      "consultant", "realtor", "real estate", "insurance", "financial", "chiropractic", "chiropractor",
+      "veterinary", "veterinarian", "photography", "photographer",
+    ],
   },
 ] as const;
 
-export function pickDemoSite(category: string | null): { label: string; url: string } {
-  const haystack = (category ?? "").toLowerCase();
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// Word-boundary matching, not a plain substring check - "bar" as a
+// standalone word should match "wine bar" but not "barber shop", and a
+// plain .includes() can't tell those apart.
+function matchesKeyword(haystack: string, keyword: string): boolean {
+  return new RegExp(`\\b${escapeRegExp(keyword)}\\b`, "i").test(haystack);
+}
+
+export function pickDemoSite(category: string | null): { label: string; url: string; matched: boolean } {
+  const haystack = category ?? "";
   for (const site of DEMO_SITES) {
-    if (site.keywords.some((k) => haystack.includes(k))) {
-      return { label: site.label, url: site.url };
+    if (site.keywords.some((k) => matchesKeyword(haystack, k))) {
+      return { label: site.label, url: site.url, matched: true };
     }
   }
-  // Default to the commerce-flavored demo - most local businesses are
+  // No confident match - still show a demo (better than none), but callers
+  // should treat this as a guess rather than a genuine fit. Defaults to the
+  // commerce-flavored demo since most unclassified local businesses are
   // closer to "sell something" than the other two categories.
-  return { label: DEMO_SITES[0].label, url: DEMO_SITES[0].url };
+  return { label: DEMO_SITES[0].label, url: DEMO_SITES[0].url, matched: false };
 }
 
 const PITCH_EMAIL_SYSTEM = `You are a freelance web DEVELOPER (not a designer) writing a first-contact email \
@@ -230,8 +265,7 @@ ongoing relationship, not a big project.
 4. A closing line inviting a real conversation to hear their side of it - not a hard close, not "let's hop on \
 a call to discuss next steps."
 
-Naturally include this example link once, where it fits: {{DEMO_URL}} - framed as "here's a quick example of \
-what that could look like," not a hard sell.
+{{DEMO_INSTRUCTION}}
 
 Write it so it does NOT read as AI-written. Specifically:
 - No em dashes, anywhere. Use a period, "and," or "but" instead.
@@ -273,7 +307,14 @@ export async function generatePitchEmail(
   const anthropic = new Anthropic({ apiKey });
 
   const demoSite = pickDemoSite(business.category);
-  const system = PITCH_EMAIL_SYSTEM.replace("{{DEMO_URL}}", demoSite.url);
+  const demoInstruction = demoSite.matched
+    ? `Naturally include this example link once, where it fits: ${demoSite.url} - framed as "here's a quick \
+example of what that could look like," not a hard sell.`
+    : `You have one example site to show, ${demoSite.url}, but it's not a close match for this business's \
+industry - it's just the kind of thing you build. Only mention it if it fits naturally, framed generally as \
+"here's an example of the kind of site I build" rather than implying it looks like their business. It's fine \
+to leave it out entirely if it would feel like a stretch.`;
+  const system = PITCH_EMAIL_SYSTEM.replace("{{DEMO_INSTRUCTION}}", demoInstruction);
 
   const response = await anthropic.messages.create({
     model: "claude-sonnet-5",

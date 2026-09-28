@@ -1,9 +1,15 @@
 # e2e tests
 
-Playwright specs covering every page: login, the businesses dashboard (search/sort),
-business detail (edit, add contact, domain check, analysis, contact search, pitch
-generation, draft edit/save/send/discard), the review queue, settings, dark mode, and
-navigation/sign-out.
+Playwright specs covering every page: login, the businesses dashboard (search/sort,
+stat cards, follow-up badges, manual add, bulk actions, CSV export), business detail
+(edit, add/select contact, domain check, analysis, contact search, pitch generation,
+draft edit/save/send/discard, mark-as-replied), the review queue, settings (including
+on-demand lead research), dark mode, the command palette, and navigation/sign-out.
+
+Unit tests for the pure logic these pages depend on (domain slugging, text
+extraction, demo-site matching, follow-up timing, CSV escaping) live alongside their
+modules as `lib/*.test.ts` and run with `npm test` (Vitest) - much faster than a
+browser test, so prefer adding there for anything that doesn't need a real page.
 
 ## Safety design
 
@@ -13,12 +19,16 @@ separate staging environment. Two things keep that safe:
 - **Isolated test data.** `global-setup.ts` seeds one uniquely-named business
   (`E2E Test Business <run id>`) before the suite runs and `global-teardown.ts` deletes
   it afterward. That delete cascades to any contacts/drafts/communications/reports
-  created against it. The suite never touches the real seeded leads.
+  created against it. The suite never touches the real seeded leads. The one exception
+  is `new-features.spec.ts`'s manual-add test, which creates and immediately searches
+  for its own throwaway business by a timestamped name - consider cleaning those up
+  periodically if you run this suite often against a long-lived database.
 - **Test-mode stubs.** The webServer is started with `E2E_TEST_MODE=1`, which makes
-  `lib/gmail.ts` (`sendGmail`) and `lib/analysis.ts` (`analyzeBusiness`,
-  `discoverContact`, `generatePitchEmail`) return deterministic fake data instead of
-  calling the real Gmail or Anthropic APIs. No real email ever sends and no API
-  credits are spent by running this suite.
+  `lib/gmail.ts` (`sendGmail`), `lib/analysis.ts` (`analyzeBusiness`,
+  `discoverContact`, `generatePitchEmail`), and `lib/lead-research.ts`
+  (`runLeadResearch`, used by the Settings page's on-demand trigger) return
+  deterministic fake data instead of calling the real Gmail, Anthropic, or web search
+  APIs. No real email ever sends and no API credits are spent by running this suite.
 
 ## Required environment variables
 

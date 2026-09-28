@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint-test-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      - run: npm test
+
+      # No Supabase/Anthropic/Gmail env vars needed: every page is
+      # force-dynamic (no data fetched at build time), so this only
+      # verifies the app compiles and type-checks. e2e tests need real
+      # credentials and stay a manual/local run - see e2e/README.md.
+      - run: npm run build

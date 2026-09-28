@@ -2,6 +2,10 @@ import Link from "next/link";
 import { listBusinesses, type Business } from "@/lib/db";
 import { StatCard } from "@/components/stat-card";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
+import { AddBusinessModal } from "./add-business-modal";
+import { BulkActionsBar } from "./bulk-actions-bar";
+import { ExportCsvButton } from "./export-csv-button";
+import { needsFollowUp, FOLLOW_UP_DAYS } from "@/lib/followup";
 
 export const dynamic = "force-dynamic";
 
@@ -59,8 +63,18 @@ const columns: DataTableColumn<Business>[] = [
     accessor: (b) => b.status,
     sortable: true,
     render: (b) => (
-      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${STATUS_STYLES[b.status] ?? "bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300"}`}>
-        {b.status}
+      <span className="inline-flex items-center gap-1.5">
+        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${STATUS_STYLES[b.status] ?? "bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300"}`}>
+          {b.status}
+        </span>
+        {needsFollowUp(b) && (
+          <span
+            title={`No reply in ${FOLLOW_UP_DAYS}+ days - worth a follow-up`}
+            className="rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-semibold text-orange-900 dark:bg-orange-500/15 dark:text-orange-300"
+          >
+            follow up
+          </span>
+        )}
       </span>
     ),
   },
@@ -73,10 +87,14 @@ export default async function BusinessesPage() {
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">Businesses</h1>
-        <span className="text-sm font-medium text-neutral-500 dark:text-neutral-400">{businesses.length} tracked</span>
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-medium text-neutral-500 dark:text-neutral-400">{businesses.length} tracked</span>
+          <ExportCsvButton businesses={businesses} />
+          <AddBusinessModal />
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {STAT_GROUPS.map((group) => (
           <StatCard
             key={group.label}
@@ -84,6 +102,7 @@ export default async function BusinessesPage() {
             value={businesses.filter((b) => group.statuses.includes(b.status)).length}
           />
         ))}
+        <StatCard label="Needs follow-up" value={businesses.filter((b) => needsFollowUp(b)).length} />
       </div>
 
       {businesses.length === 0 ? (
@@ -99,6 +118,9 @@ export default async function BusinessesPage() {
           searchPlaceholder="Search businesses..."
           emptyMessage="No businesses match your search."
           pageSize={10}
+          renderBulkActions={(selectedIds, clearSelection) => (
+            <BulkActionsBar selectedIds={selectedIds} clearSelection={clearSelection} />
+          )}
         />
       )}
     </div>

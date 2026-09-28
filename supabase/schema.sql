@@ -13,7 +13,11 @@ create table businesses (
   gap_summary text,
   status text not null default 'new-lead',
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  -- Set only when a real content field changes (lib/actions.ts editBusiness),
+  -- not on every touch of the row (e.g. a status change) - lets the UI flag
+  -- a report as possibly outdated by comparing it against report.created_at.
+  content_updated_at timestamptz
 );
 
 create table contacts (
@@ -74,6 +78,10 @@ create index idx_reports_business_id on reports(business_id);
 -- only, in lib/supabase/admin.ts) can read/write. Anon/browser access is
 -- blocked entirely, which is enough for a staff-only prototype - revisit
 -- with real per-row policies once a client portal needs browser-side access.
+-- Deliberately not adding speculative policies now: a correct policy needs
+-- a real ownership/auth model (which business belongs to which client
+-- login), and that model doesn't exist yet - a policy written against a
+-- guessed shape would likely need rewriting anyway once it does.
 alter table businesses enable row level security;
 alter table contacts enable row level security;
 alter table drafts enable row level security;

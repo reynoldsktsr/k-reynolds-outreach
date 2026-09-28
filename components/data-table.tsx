@@ -21,6 +21,8 @@ interface DataTableProps<T> {
   searchPlaceholder?: string;
   emptyMessage?: string;
   pageSize?: number;
+  /** Renders a bulk-action bar above the table whenever 1+ rows are selected. */
+  renderBulkActions?: (selectedIds: string[], clearSelection: () => void) => ReactNode;
 }
 
 type SortDirection = "asc" | "desc";
@@ -38,11 +40,13 @@ export function DataTable<T>({
   searchPlaceholder = "Search...",
   emptyMessage = "No results found.",
   pageSize = 10,
+  renderBulkActions,
 }: DataTableProps<T>) {
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [page, setPage] = useState(1);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const filteredRows = useMemo(() => {
     const trimmed = query.trim().toLowerCase();
@@ -95,8 +99,38 @@ export function DataTable<T>({
     setPage(1);
   }
 
+  const pageRowIds = pagedRows.map(getRowId);
+
+  function toggleRow(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAllOnPage(ids: string[]) {
+    setSelected((prev) => {
+      const allSelected = ids.length > 0 && ids.every((id) => prev.has(id));
+      const next = new Set(prev);
+      ids.forEach((id) => (allSelected ? next.delete(id) : next.add(id)));
+      return next;
+    });
+  }
+
+  function clearSelection() {
+    setSelected(new Set());
+  }
+
   return (
     <div className="card overflow-hidden">
+      {renderBulkActions && selected.size > 0 && (
+        <div className="flex items-center gap-3 border-b border-neutral-200 bg-accent-50 px-4 py-3 text-sm dark:border-neutral-800 dark:bg-accent-500/10">
+          <span className="font-medium text-neutral-700 dark:text-neutral-300">{selected.size} selected</span>
+          {renderBulkActions(Array.from(selected), clearSelection)}
+        </div>
+      )}
       <div className="border-b border-neutral-200 p-4 dark:border-neutral-800">
         <input
           type="search"
@@ -112,6 +146,16 @@ export function DataTable<T>({
         <table className="w-full text-left text-sm">
           <thead className="border-b border-neutral-200 bg-neutral-50 text-xs uppercase tracking-wide text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900/60 dark:text-neutral-400">
             <tr>
+              {renderBulkActions && (
+                <th scope="col" className="w-10 px-4 py-3">
+                  <input
+                    type="checkbox"
+                    aria-label="Select all rows on this page"
+                    checked={pageRowIds.length > 0 && pageRowIds.every((id) => selected.has(id))}
+                    onChange={() => toggleAllOnPage(pageRowIds)}
+                  />
+                </th>
+              )}
               {columns.map((column) => {
                 const isActive = sortKey === column.key;
                 return (
@@ -138,20 +182,36 @@ export function DataTable<T>({
           <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
             {pagedRows.length === 0 ? (
               <tr>
-                <td colSpan={columns.length} className="px-4 py-10 text-center text-neutral-500 dark:text-neutral-400">
+                <td
+                  colSpan={columns.length + (renderBulkActions ? 1 : 0)}
+                  className="px-4 py-10 text-center text-neutral-500 dark:text-neutral-400"
+                >
                   {emptyMessage}
                 </td>
               </tr>
             ) : (
-              pagedRows.map((row) => (
-                <tr key={getRowId(row)} className="hover:bg-neutral-50 dark:hover:bg-neutral-900/50">
-                  {columns.map((column) => (
-                    <td key={column.key} className={`px-4 py-3 text-neutral-700 dark:text-neutral-300 ${column.className ?? ""}`}>
-                      {column.render ? column.render(row) : String(column.accessor(row))}
-                    </td>
-                  ))}
-                </tr>
-              ))
+              pagedRows.map((row) => {
+                const id = getRowId(row);
+                return (
+                  <tr key={id} className="hover:bg-neutral-50 dark:hover:bg-neutral-900/50">
+                    {renderBulkActions && (
+                      <td className="px-4 py-3">
+                        <input
+                          type="checkbox"
+                          aria-label="Select row"
+                          checked={selected.has(id)}
+                          onChange={() => toggleRow(id)}
+                        />
+                      </td>
+                    )}
+                    {columns.map((column) => (
+                      <td key={column.key} className={`px-4 py-3 text-neutral-700 dark:text-neutral-300 ${column.className ?? ""}`}>
+                        {column.render ? column.render(row) : String(column.accessor(row))}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

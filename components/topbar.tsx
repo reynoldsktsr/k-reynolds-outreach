@@ -2,7 +2,15 @@
 
 import { useTheme } from "@/lib/theme";
 
-export function Topbar({ title, onMenuClick }: { title: string; onMenuClick: () => void }) {
+export function Topbar({
+  title,
+  onMenuClick,
+  onSearchClick,
+}: {
+  title: string;
+  onMenuClick: () => void;
+  onSearchClick: () => void;
+}) {
   const { theme, toggleTheme } = useTheme();
 
   return (
@@ -21,12 +29,34 @@ export function Topbar({ title, onMenuClick }: { title: string; onMenuClick: () 
         <h1 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">{title}</h1>
       </div>
 
-      <button
-        type="button"
-        onClick={toggleTheme}
-        aria-label="Toggle color theme"
-        className="rounded-md p-2 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
-      >
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={onSearchClick}
+          className="hidden items-center gap-2 rounded-md border border-neutral-300 px-3 py-1.5 text-sm text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700 dark:border-neutral-700 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200 sm:flex"
+        >
+          Jump to...
+          <kbd className="rounded border border-neutral-300 bg-neutral-50 px-1.5 py-0.5 text-[11px] font-medium dark:border-neutral-600 dark:bg-neutral-800">
+            ⌘K
+          </kbd>
+        </button>
+        <button
+          type="button"
+          onClick={onSearchClick}
+          aria-label="Open command palette"
+          className="rounded-md p-2 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200 sm:hidden"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.3-4.3" strokeLinecap="round" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          onClick={toggleTheme}
+          aria-label="Toggle color theme"
+          className="rounded-md p-2 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+        >
         {theme === "dark" ? (
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="12" cy="12" r="4" />
@@ -40,7 +70,8 @@ export function Topbar({ title, onMenuClick }: { title: string; onMenuClick: () 
             <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         )}
-      </button>
+        </button>
+      </div>
     </header>
   );
 }

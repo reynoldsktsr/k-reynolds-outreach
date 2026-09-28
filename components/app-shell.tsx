@@ -4,6 +4,8 @@ import { useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
+import { CommandPaletteProvider } from "./command-palette-provider";
+import { useCommandPalette } from "../vendor/command-palette/command-palette";
 
 const PAGE_TITLES: { match: (path: string) => boolean; title: string }[] = [
   { match: (p) => p === "/businesses", title: "Businesses" },
@@ -20,9 +22,11 @@ export function AppShell({ userEmail, children }: { userEmail: string | null; ch
   const [drawerOpen, setDrawerOpen] = useState(false);
   const pathname = usePathname();
   const title = titleForPath(pathname);
+  const palette = useCommandPalette();
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
+      <CommandPaletteProvider open={palette.open} onClose={palette.closePalette} />
       <aside className="fixed inset-y-0 left-0 z-20 hidden w-64 border-r border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900 lg:block">
         <Sidebar userEmail={userEmail} />
       </aside>
@@ -37,7 +41,7 @@ export function AppShell({ userEmail, children }: { userEmail: string | null; ch
       )}
 
       <div className="lg:pl-64">
-        <Topbar title={title} onMenuClick={() => setDrawerOpen(true)} />
+        <Topbar title={title} onMenuClick={() => setDrawerOpen(true)} onSearchClick={palette.openPalette} />
         <main className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 lg:py-8">{children}</main>
       </div>
     </div>

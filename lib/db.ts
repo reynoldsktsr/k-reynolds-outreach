@@ -50,6 +50,7 @@ export type Business = {
   status: string;
   createdAt: string;
   updatedAt: string;
+  contentUpdatedAt: string | null;
   contacts: Contact[];
   drafts: Draft[];
   communications: Communication[];
@@ -109,6 +110,7 @@ function mapBusiness(
     status: row.status,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    contentUpdatedAt: row.content_updated_at ?? null,
     contacts,
     drafts,
     communications,
@@ -124,10 +126,37 @@ function sortBusinesses(a: Business, b: Business) {
   return b.createdAt.localeCompare(a.createdAt);
 }
 
-export async function listBusinesses(): Promise<Business[]> {
-  const { data, error } = await supabaseAdmin().from("businesses").select("*");
+// Every automated + manual lead is fetched in one query for the dashboard's
+// client-side search/sort/pagination (see components/data-table.tsx). Fine
+// at the current scale (dozens to low hundreds of leads); a bounded limit
+// here keeps a runaway lead count from turning this into an unbounded
+// query rather than silently loading everything forever. If the real count
+// ever approaches this, the fix is server-side pagination in this query
+// (and in DataTable), not raising the number.
+const LIST_BUSINESSES_LIMIT = 1000;
+
+/** A minimal, fast projection for UI that just needs to link to a business (e.g. the command palette). */
+export async function listBusinessNames(): Promise<{ id: string; name: string }[]> {
+  const { data, error } = await supabaseAdmin()
+    .from("businesses")
+    .select("id, name")
+    .order("name")
+    .limit(LIST_BUSINESSES_LIMIT);
   if (error) throw error;
-  return (data ?? []).map((r) => mapBusiness(r)).sort(sortBusinesses);
+  return data ?? [];
+}
+
+export async function listBusinesses(): Promise<Business[]> {
+  const { data, error } = await supabaseAdmin()
+    .from("businesses")
+    .select("*, communications(*)")
+    .order("created_at", { ascending: false })
+    .limit(LIST_BUSINESSES_LIMIT);
+  if (error) throw error;
+  return (data ?? [])
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .map((r: any) => mapBusiness(r, [], [], (r.communications ?? []).map(mapCommunication)))
+    .sort(sortBusinesses);
 }
 
 export async function getBusiness(id: string): Promise<Business | null> {
@@ -197,6 +226,7 @@ export async function updateBusinessFields(
     sourceNote: string | null;
   },
 ): Promise<void> {
+  const now = new Date().toISOString();
   const { error } = await supabaseAdmin()
     .from("businesses")
     .update({
@@ -207,7 +237,11 @@ export async function updateBusinessFields(
       website: data.website,
       gap_summary: data.gapSummary,
       source_note: data.sourceNote,
-      updated_at: new Date().toISOString(),
+      updated_at: now,
+      // Distinct from updated_at (which a status change also touches) so a
+      // report can be flagged stale only when the actual business details
+      // changed, not on every status transition.
+      content_updated_at: now,
     })
     .eq("id", id);
   if (error) throw error;
@@ -251,16 +285,31 @@ export async function createReport(
 export type QueueRow = { business: Business; draft: Draft; contact: Contact | null };
 
 export async function listPendingDrafts(): Promise<QueueRow[]> {
-  const { data, error } = await supabaseAdmin()
+  const db = supabaseAdmin();
+  const { data, error } = await db
     .from("drafts")
     .select("*, businesses(*), contacts(*)")
     .eq("status", "pending")
     .order("created_at", { ascending: true });
   if (error) throw error;
 
+  const businessIds = Array.from(new Set((data ?? []).map((row) => row.business_id)));
+  const { data: allContacts, error: contactsErr } =
+    businessIds.length > 0
+      ? await db.from("contacts").select("*").in("business_id", businessIds)
+      : { data: [], error: null };
+  if (contactsErr) throw contactsErr;
+
+  const contactsByBusiness = new Map<string, Contact[]>();
+  for (const row of allContacts ?? []) {
+    const list = contactsByBusiness.get(row.business_id) ?? [];
+    list.push(mapContact(row));
+    contactsByBusiness.set(row.business_id, list);
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (data ?? []).map((row: any) => ({
-    business: mapBusiness(row.businesses),
+    business: mapBusiness(row.businesses, contactsByBusiness.get(row.business_id) ?? []),
     draft: mapDraft(row),
     contact: row.contacts ? mapContact(row.contacts) : null,
   }));

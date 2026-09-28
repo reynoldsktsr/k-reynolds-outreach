@@ -6,34 +6,44 @@ import { useRouter } from "next/navigation";
 import { RichTextEditor } from "../businesses/[id]/rich-text-editor";
 import { updateDraft, approveAndSendDraft, discardDraft } from "@/lib/actions";
 import { useServerAction } from "@/lib/use-action";
+import type { Contact } from "@/lib/db";
 
 export function QueueDraftCard({
   businessId,
   businessName,
-  contactLabel,
-  contactEmail,
+  contacts,
   draftId,
   initialSubject,
   initialBody,
+  initialContactId,
 }: {
   businessId: string;
   businessName: string;
-  contactLabel: string;
-  contactEmail: string | null;
+  contacts: Contact[];
   draftId: string;
   initialSubject: string;
   initialBody: string;
+  initialContactId: string | null;
 }) {
   const [subject, setSubject] = useState(initialSubject);
   const [body, setBody] = useState(initialBody);
+  const [contactId, setContactId] = useState(initialContactId ?? "");
   const [dirty, setDirty] = useState(false);
   const { isPending, run } = useServerAction();
   const router = useRouter();
 
+  const contactsWithEmail = contacts.filter((c) => c.email);
+  const resolvedContact = contactId
+    ? contacts.find((c) => c.id === contactId)
+    : contactsWithEmail.length === 1
+      ? contactsWithEmail[0]
+      : null;
+  const needsContactChoice = !contactId && contactsWithEmail.length > 1;
+
   function save() {
     run(
       async () => {
-        await updateDraft(businessId, draftId, { subject, body });
+        await updateDraft(businessId, draftId, { subject, body, contactId: contactId || null });
         setDirty(false);
         router.refresh();
       },
@@ -44,7 +54,7 @@ export function QueueDraftCard({
   function send() {
     run(
       async () => {
-        if (dirty) await updateDraft(businessId, draftId, { subject, body });
+        if (dirty) await updateDraft(businessId, draftId, { subject, body, contactId: contactId || null });
         await approveAndSendDraft(businessId, draftId);
         router.refresh();
       },
@@ -66,13 +76,31 @@ export function QueueDraftCard({
   return (
     <div className="card p-6">
       <div className="flex items-start justify-between gap-4">
-        <div>
+        <div className="min-w-0 flex-1">
           <Link href={`/businesses/${businessId}`} className="font-semibold text-neutral-900 hover:underline dark:text-neutral-100">
             {businessName}
           </Link>
-          <p className="text-sm text-neutral-600 dark:text-neutral-400">
-            To: {contactLabel} {contactEmail ? `<${contactEmail}>` : "(no email on file)"}
-          </p>
+          {contacts.length > 1 ? (
+            <select
+              value={contactId}
+              onChange={(e) => {
+                setContactId(e.target.value);
+                setDirty(true);
+              }}
+              className="input mt-1.5 text-sm"
+            >
+              <option value="">No contact selected</option>
+              {contacts.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name ?? c.email ?? "Unnamed"} {c.email ? `(${c.email})` : "(no email)"}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <p className="text-sm text-neutral-600 dark:text-neutral-400">
+              To: {resolvedContact?.name ?? "unknown"} {resolvedContact?.email ? `<${resolvedContact.email}>` : "(no email on file)"}
+            </p>
+          )}
         </div>
       </div>
       <input
@@ -93,8 +121,14 @@ export function QueueDraftCard({
         />
       </div>
       <div className="mt-4 flex gap-2">
-        <button onClick={send} disabled={isPending || !contactEmail} className="btn-primary">
-          {isPending ? "Working…" : contactEmail ? "Approve & send" : "No contact email on file"}
+        <button onClick={send} disabled={isPending || !resolvedContact?.email} className="btn-primary">
+          {isPending
+            ? "Working…"
+            : resolvedContact?.email
+              ? "Approve & send"
+              : needsContactChoice
+                ? "Pick a contact above"
+                : "No contact email on file"}
         </button>
         <button onClick={discard} disabled={isPending} className="btn-secondary">
           Discard

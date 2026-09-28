@@ -1,4 +1,5 @@
 import { getConnectedAccountEmail } from "@/lib/gmail";
+import { RunResearchButton } from "./run-research-button";
 
 export const dynamic = "force-dynamic";
 
@@ -10,13 +11,19 @@ export default async function SettingsPage({
   const params = await searchParams;
   const connectedEmail = await getConnectedAccountEmail();
 
+  const ERROR_MESSAGES: Record<string, string> = {
+    invalid_oauth_state:
+      "That connection attempt couldn't be verified (the security check failed or the link expired) - try connecting again.",
+    missing_code: "Google didn't return an authorization code - try connecting again.",
+  };
+
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
 
       {params.error && (
         <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
-          {decodeURIComponent(params.error)}
+          {ERROR_MESSAGES[params.error] ?? decodeURIComponent(params.error)}
         </p>
       )}
       {params.connected && (
@@ -41,6 +48,17 @@ export default async function SettingsPage({
           this account added as a test user, scope{" "}
           <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">gmail.send</code>).
         </p>
+      </div>
+
+      <div className="card p-6">
+        <h2 className="text-base font-semibold">Lead research</h2>
+        <p className="mt-1.5 text-sm text-neutral-700 dark:text-neutral-300">
+          Runs automatically once a day. Use this to top up the pipeline on demand, or to test the researcher
+          without waiting for the next scheduled run.
+        </p>
+        <div className="mt-4">
+          <RunResearchButton />
+        </div>
       </div>
     </div>
   );

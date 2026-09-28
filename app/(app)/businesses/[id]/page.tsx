@@ -10,6 +10,8 @@ import { AiActionButton } from "./ai-action-button";
 import { StatusSelect } from "./status-select";
 import { EditDetailsForm } from "./edit-details-form";
 import { AddContactModal } from "./add-contact-modal";
+import { PitchGenerationControl } from "./pitch-generation-control";
+import { MarkRepliedControl } from "./mark-replied-control";
 
 export const dynamic = "force-dynamic";
 
@@ -91,15 +93,28 @@ export default async function BusinessDetailPage({
         </p>
         <ul className="mt-4 flex flex-col gap-3">
           {reports.length === 0 && <li className="text-sm text-neutral-500 dark:text-neutral-400">No reports yet.</li>}
-          {reports.map((r) => (
-            <li key={r.id} className="rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
-              <div className="flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
-                <span className="font-medium text-neutral-700 dark:text-neutral-300">{REPORT_LABELS[r.kind] ?? r.kind}</span>
-                <span>{new Date(r.createdAt).toLocaleString()}</span>
-              </div>
-              <ReportContent content={r.content} />
-            </li>
-          ))}
+          {reports.map((r) => {
+            const isStale = Boolean(business.contentUpdatedAt && business.contentUpdatedAt > r.createdAt);
+            return (
+              <li key={r.id} className="rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
+                <div className="flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
+                  <span className="flex items-center gap-2">
+                    <span className="font-medium text-neutral-700 dark:text-neutral-300">{REPORT_LABELS[r.kind] ?? r.kind}</span>
+                    {isStale && (
+                      <span
+                        title="Business details were edited after this report was generated - re-run it for current info"
+                        className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-900 dark:bg-amber-500/15 dark:text-amber-300"
+                      >
+                        may be outdated
+                      </span>
+                    )}
+                  </span>
+                  <span>{new Date(r.createdAt).toLocaleString()}</span>
+                </div>
+                <ReportContent content={r.content} />
+              </li>
+            );
+          })}
         </ul>
       </section>
 
@@ -142,13 +157,17 @@ export default async function BusinessDetailPage({
       <section className="card p-6">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold">New draft</h2>
-          <AiActionButton
-            businessId={businessId}
-            action={generatePitch}
-            idleLabel="Generate pitch email"
-            pendingLabel="Writing…"
-            successMessage="Pitch email drafted."
-          />
+          {business.contacts.length > 1 ? (
+            <PitchGenerationControl businessId={businessId} contacts={business.contacts} />
+          ) : (
+            <AiActionButton
+              businessId={businessId}
+              action={generatePitch}
+              idleLabel="Generate pitch email"
+              pendingLabel="Writing…"
+              successMessage="Pitch email drafted."
+            />
+          )}
         </div>
         <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
           Writes a personal, non-templated draft grounded in the latest analysis on this business — noticed,
@@ -184,7 +203,8 @@ export default async function BusinessDetailPage({
                   draftId={d.id}
                   initialSubject={d.subject}
                   initialBody={d.body}
-                  canSend={Boolean(business.contacts[0]?.email)}
+                  initialContactId={d.contactId}
+                  contacts={business.contacts}
                 />
               ))}
           </ul>
@@ -192,7 +212,10 @@ export default async function BusinessDetailPage({
       )}
 
       <section className="card p-6">
-        <h2 className="text-base font-semibold">History</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-semibold">History</h2>
+          <MarkRepliedControl businessId={businessId} />
+        </div>
         <ul className="mt-4 flex flex-col gap-2 text-sm">
           {business.drafts
             .filter((d) => d.status !== "pending")
@@ -203,8 +226,17 @@ export default async function BusinessDetailPage({
               </li>
             ))}
           {business.communications.map((c) => (
-            <li key={`c${c.id}`} className="rounded-lg border border-neutral-200 px-4 py-2.5 text-neutral-700 dark:border-neutral-800 dark:text-neutral-300">
-              Sent {new Date(c.occurredAt).toLocaleString()}: {c.subject}
+            <li
+              key={`c${c.id}`}
+              className={`rounded-lg border px-4 py-2.5 ${
+                c.direction === "inbound"
+                  ? "border-green-200 bg-green-50 text-green-900 dark:border-green-900 dark:bg-green-950 dark:text-green-200"
+                  : "border-neutral-200 text-neutral-700 dark:border-neutral-800 dark:text-neutral-300"
+              }`}
+            >
+              {c.direction === "inbound" ? "Replied" : "Sent"} {new Date(c.occurredAt).toLocaleString()}
+              {c.subject ? `: ${c.subject}` : ""}
+              {c.direction === "inbound" && c.body && <p className="mt-1 text-sm">{c.body}</p>}
             </li>
           ))}
           {business.drafts.filter((d) => d.status !== "pending").length === 0 &&

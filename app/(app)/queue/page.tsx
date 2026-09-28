@@ -22,16 +22,16 @@ export default async function QueuePage() {
         </p>
       ) : (
         <div className="flex flex-col gap-4">
-          {rows.map(({ business, draft, contact }) => (
+          {rows.map(({ business, draft }) => (
             <QueueDraftCard
               key={draft.id}
               businessId={business.id}
               businessName={business.name}
-              contactLabel={contact?.name ?? "unknown"}
-              contactEmail={contact?.email ?? null}
+              contacts={business.contacts}
               draftId={draft.id}
               initialSubject={draft.subject}
               initialBody={draft.body}
+              initialContactId={draft.contactId}
             />
           ))}
         </div>

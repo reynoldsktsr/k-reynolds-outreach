@@ -7,6 +7,15 @@ import { createDraft } from "@/lib/actions";
 import { useServerAction } from "@/lib/use-action";
 import type { Contact } from "@/lib/db";
 
+function isBodyEmpty(html: string): boolean {
+  return (
+    html
+      .replace(/<[^>]+>/g, "")
+      .replace(/&nbsp;/g, " ")
+      .trim().length === 0
+  );
+}
+
 export function NewDraftComposer({ businessId, contacts }: { businessId: string; contacts: Contact[] }) {
   const [contactId, setContactId] = useState("");
   const [subject, setSubject] = useState("");
@@ -15,8 +24,10 @@ export function NewDraftComposer({ businessId, contacts }: { businessId: string;
   const { isPending, run } = useServerAction();
   const router = useRouter();
 
+  const canSave = subject.trim().length > 0 && !isBodyEmpty(body);
+
   function save() {
-    if (!subject.trim()) return;
+    if (!canSave) return;
     run(
       async () => {
         await createDraft(businessId, { contactId: contactId || null, subject, body });
@@ -41,7 +52,7 @@ export function NewDraftComposer({ businessId, contacts }: { businessId: string;
       </select>
       <input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject" className="input" />
       <RichTextEditor key={editorKey} initialHtml={body} onChange={setBody} />
-      <button onClick={save} disabled={isPending || !subject.trim()} className="btn-primary self-start">
+      <button onClick={save} disabled={isPending || !canSave} className="btn-primary self-start">
         {isPending ? "Saving…" : "Save to review queue"}
       </button>
     </div>

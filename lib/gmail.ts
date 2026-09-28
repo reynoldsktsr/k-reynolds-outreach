@@ -4,7 +4,11 @@ const CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
 const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET!;
 const REDIRECT_URI = process.env.GOOGLE_OAUTH_REDIRECT_URI!;
 
-export function getAuthUrl() {
+// A route.ts file may only export HTTP method handlers and route config, so
+// this lives here rather than in the /start or /callback route itself.
+export const OAUTH_STATE_COOKIE = "google_oauth_state";
+
+export function getAuthUrl(state: string) {
   const params = new URLSearchParams({
     client_id: CLIENT_ID,
     redirect_uri: REDIRECT_URI,
@@ -12,6 +16,7 @@ export function getAuthUrl() {
     access_type: "offline",
     prompt: "consent",
     scope: "https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/userinfo.email",
+    state,
   });
   return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
 }
@@ -90,7 +95,7 @@ async function getAccessToken(refreshToken: string) {
 // Draft bodies are HTML (rich-text edited) - sending as text/plain would show
 // raw tags in the recipient's inbox, so this builds a real multipart/
 // alternative message with a plain-text fallback derived from the HTML.
-function htmlToPlainText(html: string): string {
+export function htmlToPlainText(html: string): string {
   return html
     .replace(/<(p|div|li|br)[^>]*>/gi, "\n")
     .replace(/<[^>]+>/g, "")

@@ -22,8 +22,13 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 ## Testing
 
-End-to-end tests (Playwright) cover every page. See [`e2e/README.md`](./e2e/README.md)
-for required env vars and how to run them.
+- `npm test` - fast unit tests (Vitest) for the pure logic modules (`lib/*.test.ts`).
+- `npm run test:e2e` - Playwright, covering every page end to end. See
+  [`e2e/README.md`](./e2e/README.md) for required env vars and how to run them.
+
+CI (`.github/workflows/ci.yml`) runs lint, unit tests, and a production build on
+every push/PR. e2e isn't in CI since it needs real Supabase/staff credentials -
+run it locally or from a trusted environment that has them.
 
 ## Learn More
 
