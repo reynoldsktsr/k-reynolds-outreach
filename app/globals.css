@@ -1,6 +1,17 @@
+/* The vendored command-palette CSS defines its own plain (unlayered)
+   utility classes - .hidden, .flex, .block, etc - reusing the exact same
+   names Tailwind generates. Unlayered CSS always wins over any @layer'd
+   rule regardless of import order or specificity, so without this it
+   silently broke every "hidden lg:block"-style responsive utility in the
+   whole app (the sidebar disappeared entirely). Declaring this layer
+   first, before Tailwind's own layers exist, makes it the lowest-priority
+   layer - Tailwind's utilities layer (declared next) wins whenever both
+   define the same class. */
+@layer vendor-command-palette;
+@import "../vendor/command-palette/style.css" layer(vendor-command-palette);
+
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
-@import "../vendor/command-palette/style.css";
 
 /* Class-based dark mode (toggled via .dark on <html>), matching the
    admin-ui-kit design system this app's layout is adapted from. */

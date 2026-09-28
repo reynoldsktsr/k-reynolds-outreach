@@ -58,7 +58,9 @@ export default async function globalSetup(config: FullConfig) {
   // Log in once and reuse the session across every test file instead of
   // re-authenticating per test.
   const baseURL = config.projects[0]?.use?.baseURL as string;
-  const browser = await chromium.launch();
+  const browser = await chromium.launch(
+    process.env.PLAYWRIGHT_CHROMIUM_PATH ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH } : {},
+  );
   const page = await browser.newPage({ baseURL });
   await page.goto("/login");
   await page.getByPlaceholder("Email").fill(process.env.E2E_ADMIN_EMAIL!);

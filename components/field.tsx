@@ -1,11 +1,18 @@
-import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
+"use client";
+
+import { useId, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 
 interface TextFieldProps extends InputHTMLAttributes<HTMLInputElement> {
   label: string;
 }
 
 export function TextField({ label, id, ...rest }: TextFieldProps) {
-  const inputId = id ?? label.toLowerCase().replace(/\s+/g, "-");
+  // useId(), not a slug derived from the label text - two different forms on
+  // the same page (e.g. "Edit details" and "Add contact") both have a field
+  // labeled "Name", and a label-derived id collided across them, silently
+  // routing input into the wrong field via the first same-id match.
+  const generatedId = useId();
+  const inputId = id ?? generatedId;
   return (
     <div>
       <label htmlFor={inputId} className="label">
@@ -21,7 +28,8 @@ interface TextAreaFieldProps extends TextareaHTMLAttributes<HTMLTextAreaElement>
 }
 
 export function TextAreaField({ label, id, ...rest }: TextAreaFieldProps) {
-  const areaId = id ?? label.toLowerCase().replace(/\s+/g, "-");
+  const generatedId = useId();
+  const areaId = id ?? generatedId;
   return (
     <div>
       <label htmlFor={areaId} className="label">
@@ -38,7 +46,8 @@ interface SelectFieldProps extends SelectHTMLAttributes<HTMLSelectElement> {
 }
 
 export function SelectField({ label, id, children, ...rest }: SelectFieldProps) {
-  const selectId = id ?? label.toLowerCase().replace(/\s+/g, "-");
+  const generatedId = useId();
+  const selectId = id ?? generatedId;
   return (
     <div>
       <label htmlFor={selectId} className="label">

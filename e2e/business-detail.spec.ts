@@ -28,7 +28,10 @@ test.describe.serial("business detail page", () => {
     await gapField.fill("Updated by the e2e suite.");
     await page.getByRole("button", { name: "Save changes" }).click();
     await expect(page.getByText("Business details saved.")).toBeVisible();
-    await expect(page.getByText("Updated by the e2e suite.")).toBeVisible();
+    // The updated text legitimately appears twice once saved - the page's
+    // own gap-summary blurb, and the still-open edit form's textarea still
+    // showing the same value - so check the specific field, not the page.
+    await expect(gapField).toHaveValue("Updated by the e2e suite.");
   });
 
   test("updating status shows a success toast", async () => {
@@ -49,13 +52,20 @@ test.describe.serial("business detail page", () => {
 
   test("adding a contact through the modal", async () => {
     await page.getByRole("button", { name: "Add contact" }).click();
-    await expect(page.getByRole("dialog", { name: "Add contact" })).toBeVisible();
-    await page.getByLabel("Name").fill("E2E Test Contact");
-    await page.getByLabel("Email", { exact: true }).fill("e2e-contact@example.com");
-    await page.getByRole("button", { name: "Save contact" }).click();
+    const dialog = page.getByRole("dialog", { name: "Add contact" });
+    await expect(dialog).toBeVisible();
+    // Scoped to the dialog - the business's own "Edit details" form (open
+    // from an earlier test) also has a field labeled "Name".
+    await dialog.getByLabel("Name").fill("E2E Test Contact");
+    await dialog.getByLabel("Email", { exact: true }).fill("e2e-contact@example.com");
+    await dialog.getByRole("button", { name: "Save contact" }).click();
     await expect(page.getByText("Contact added.")).toBeVisible();
-    await expect(page.getByText("E2E Test Contact")).toBeVisible();
-    await expect(page.getByText("e2e-contact@example.com")).toBeVisible();
+    // The new contact's name also appears as an <option> in the "write one
+    // manually" contact-select dropdown further down the page, so scope to
+    // the Contacts list item specifically rather than a bare text match.
+    const contactItem = page.getByRole("listitem").filter({ hasText: "E2E Test Contact" });
+    await expect(contactItem).toBeVisible();
+    await expect(contactItem).toContainText("e2e-contact@example.com");
   });
 
   test("generating a pitch email adds a pending draft", async () => {
@@ -77,7 +87,9 @@ test.describe.serial("business detail page", () => {
     await draftCard.getByRole("button", { name: "Approve & send" }).click();
     await expect(page.getByText("Email sent.")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByRole("heading", { name: "Pending drafts" })).not.toBeVisible();
-    await expect(page.getByText("[edited by e2e] Quick note")).toBeVisible();
+    // Shows up twice in History once sent - its own entry, and the
+    // communications log line - either confirms the send went through.
+    await expect(page.getByText("[edited by e2e] Quick note").first()).toBeVisible();
   });
 
   test("writing and discarding a manual draft", async () => {

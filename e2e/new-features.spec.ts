@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { createClient } from "@supabase/supabase-js";
 import { getTestBusiness } from "./test-data";
 
 test("adding a business manually from the dashboard", async ({ page }) => {
@@ -12,11 +13,19 @@ test("adding a business manually from the dashboard", async ({ page }) => {
 
   // Redirects straight to the new business's detail page.
   await expect(page.getByRole("heading", { name })).toBeVisible({ timeout: 10_000 });
+  const businessId = new URL(page.url()).pathname.split("/").pop();
 
-  // Clean up so this doesn't pollute the businesses list across runs.
   await page.goto("/businesses");
   await page.getByPlaceholder("Search businesses...").fill(name);
   await expect(page.getByRole("link", { name })).toBeVisible();
+
+  // This test creates a real row (unlike everything else here, which
+  // operates on the one seeded-and-torn-down test business) - clean it up
+  // directly rather than leaving it for a periodic manual sweep.
+  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!, {
+    auth: { persistSession: false },
+  });
+  await supabase.from("businesses").delete().eq("id", businessId);
 });
 
 test("marking a business as replied logs it and updates status", async ({ page }) => {

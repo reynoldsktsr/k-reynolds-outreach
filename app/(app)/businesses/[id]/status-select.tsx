@@ -22,8 +22,11 @@ export function StatusSelect({ businessId, currentStatus }: { businessId: string
 
   return (
     <div className="flex items-center gap-2">
-      <label className="text-sm font-medium text-neutral-600 dark:text-neutral-400">Status</label>
+      <label htmlFor="business-status" className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
+        Status
+      </label>
       <select
+        id="business-status"
         defaultValue={currentStatus}
         disabled={isPending}
         onChange={(e) => handleChange(e.target.value)}

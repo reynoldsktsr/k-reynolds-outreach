@@ -19,10 +19,13 @@ separate staging environment. Two things keep that safe:
 - **Isolated test data.** `global-setup.ts` seeds one uniquely-named business
   (`E2E Test Business <run id>`) before the suite runs and `global-teardown.ts` deletes
   it afterward. That delete cascades to any contacts/drafts/communications/reports
-  created against it. The suite never touches the real seeded leads. The one exception
-  is `new-features.spec.ts`'s manual-add test, which creates and immediately searches
-  for its own throwaway business by a timestamped name - consider cleaning those up
-  periodically if you run this suite often against a long-lived database.
+  created against it. The suite never touches the real seeded leads.
+  `new-features.spec.ts`'s manual-add test is the one exception that creates its own
+  extra row (there's no "delete business" feature in the app to drive from the UI) -
+  it deletes that row directly via the Supabase client at the end of the same test.
+  A run that crashes before that cleanup step runs (rare, but possible on a hard
+  failure) can still leave one `E2E Manual Add <timestamp>`-named row behind - sweep
+  for `name like 'E2E %'` occasionally if you're running this a lot.
 - **Test-mode stubs.** The webServer is started with `E2E_TEST_MODE=1`, which makes
   `lib/gmail.ts` (`sendGmail`), `lib/analysis.ts` (`analyzeBusiness`,
   `discoverContact`, `generatePitchEmail`), and `lib/lead-research.ts`
@@ -56,3 +59,12 @@ server, set `E2E_BASE_URL` (e.g. `E2E_BASE_URL=https://outreach.k-reynolds.com`)
 Note that on a real deployment, `E2E_TEST_MODE` needs to be set in that
 environment's own env vars for the Gmail/Anthropic stubs to kick in - don't point
 this at production without it, or "approve & send" will send a real email.
+
+If your environment doesn't let Playwright download its own browser (e.g. a
+sandboxed CI image with a pre-installed Chromium at a fixed path instead), set
+`PLAYWRIGHT_CHROMIUM_PATH` to that binary's path and both the config and
+`global-setup.ts` will launch it directly instead of the version Playwright
+would otherwise expect.
+
+This whole suite (all 28 tests) has been run and passes against the real
+Supabase project.

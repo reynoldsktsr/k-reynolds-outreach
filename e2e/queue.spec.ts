@@ -12,9 +12,13 @@ test("a freshly generated draft shows up in the review queue and can be sent", a
 
   await page.goto("/queue");
   await expect(page.getByRole("heading", { name: "Review queue" })).toBeVisible();
-  await expect(page.getByText(businessName)).toBeVisible();
+  // The pitch email's own body text can legitimately also contain the
+  // business name, so scope to the specific card via its link, not a bare
+  // text match (which can then match twice: the link and the email body).
+  const businessLink = page.getByRole("link", { name: businessName, exact: true });
+  await expect(businessLink).toBeVisible();
 
-  const card = page.getByText(businessName).locator("../..");
+  const card = page.locator(".card").filter({ has: businessLink });
   await card.getByRole("button", { name: "Approve & send" }).click();
   await expect(page.getByText("Email sent.")).toBeVisible({ timeout: 15_000 });
 });
@@ -27,7 +31,8 @@ test("discarding a draft from the queue asks for confirmation", async ({ page })
   await expect(page.getByText("Pitch email drafted.")).toBeVisible({ timeout: 15_000 });
 
   await page.goto("/queue");
-  const card = page.getByText(businessName).locator("../..");
+  const businessLink = page.getByRole("link", { name: businessName, exact: true });
+  const card = page.locator(".card").filter({ has: businessLink });
 
   page.once("dialog", (dialog) => dialog.accept());
   await card.getByRole("button", { name: "Discard" }).click();

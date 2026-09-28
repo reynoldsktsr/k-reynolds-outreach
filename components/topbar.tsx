@@ -26,7 +26,10 @@ export function Topbar({
             <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" />
           </svg>
         </button>
-        <h1 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">{title}</h1>
+        {/* Not an <h1> - each page already renders its own real heading for
+            its content; this is just persistent chrome, so a second h1 with
+            the same text would be a real (and confusing) a11y duplicate. */}
+        <p className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">{title}</p>
       </div>
 
       <div className="flex items-center gap-2">
