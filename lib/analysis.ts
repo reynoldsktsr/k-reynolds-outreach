@@ -1,6 +1,17 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { Business } from "@/lib/db";
 
+// With server-side tools like web_search, a response can carry several text
+// blocks interleaved with tool use/results (e.g. "let me search for..." then
+// later the real answer) - .find() on the first one silently grabs
+// commentary instead of the final answer. Join every text block instead.
+export function extractText(content: Anthropic.Messages.ContentBlock[]): string {
+  return content
+    .filter((b): b is Anthropic.Messages.TextBlock => b.type === "text")
+    .map((b) => b.text)
+    .join("\n\n");
+}
+
 const BROWSER_UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15";
 
@@ -87,14 +98,23 @@ Search for the business's Google Business Profile, Yelp listing, Facebook page, 
 directory mention. Only report what you can actually verify from search results - never invent an email, \
 phone number, or owner/manager name, even a plausible-sounding one.
 
-End your findings with these lines, using this exact format, omitting any you didn't find:
-CONTACT_EMAIL: <email>
-CONTACT_PHONE: <phone>
-CONTACT_NAME: <owner or manager name, if a specific person is named anywhere>
+The lines below are the ONLY way anything you find reaches the system that uses it - a downstream program \
+parses exactly these lines and nothing else. If you mention finding a phone number, name, or email in your \
+summary but don't also put the literal value on its matching line, it is lost completely, as if you never \
+found it. So: every time your search surfaces a phone number, email, or a person's name - even just a first \
+name, even if you're not fully sure - write the actual value on its line. Never write a line that just says \
+you found something without the value itself.
+
+End your findings with these lines, in this exact format, each on its own line, omitting only ones you truly \
+found nothing for:
+CONTACT_EMAIL: <the literal email address>
+CONTACT_PHONE: <the literal phone number>
+CONTACT_NAME: <the literal name, even if it's only a first name>
 CONFIDENCE: <one line: what you found, where, and how sure you are>
 
-Before those lines, write 2-3 sentences summarizing what you searched and found (or didn't). Be honest if you \
-came up empty - that's a valid, useful result.`;
+Before those lines, write 2-3 sentences summarizing what you searched and found (or didn't) - but repeat the \
+actual values in the lines below regardless, since that's the part that gets used. Be honest if you came up \
+empty - that's a valid, useful result too.`;
 
 export type ContactDiscoveryResult = {
   summary: string;
@@ -124,8 +144,7 @@ Address: ${business.address ?? "unknown"}`,
     ],
   });
 
-  const textBlock = response.content.find((b) => b.type === "text");
-  const rawText = textBlock?.type === "text" ? textBlock.text : "";
+  const rawText = extractText(response.content);
 
   const emailMatch = rawText.match(/^CONTACT_EMAIL:\s*(.+)$/m);
   const phoneMatch = rawText.match(/^CONTACT_PHONE:\s*(.+)$/m);
@@ -236,8 +255,7 @@ ${analysisContent ?? business.gapSummary ?? "No detailed analysis on file yet - 
     ],
   });
 
-  const textBlock = response.content.find((b) => b.type === "text");
-  const rawText = textBlock?.type === "text" ? textBlock.text : "";
+  const rawText = extractText(response.content);
 
   const subjectMatch = rawText.match(/^SUBJECT:\s*(.+)$/m);
   const bodyMatch = rawText.match(/^BODY:\s*\n?([\s\S]*)$/m);
@@ -269,8 +287,7 @@ Source note: ${business.sourceNote ?? "none on file"}`,
         },
       ],
     });
-    const textBlock = response.content.find((b) => b.type === "text");
-    const text = textBlock?.type === "text" ? textBlock.text : "";
+    const text = extractText(response.content);
     return { kind: "no-site-pitch", content: text.trim(), extractedEmail: null, extractedPhone: null };
   }
 
@@ -295,8 +312,7 @@ ${htmlForModel}`,
       },
     ],
   });
-  const textBlock = response.content.find((b) => b.type === "text");
-  const rawText = textBlock?.type === "text" ? textBlock.text : "";
+  const rawText = extractText(response.content);
   const { content, email, phone } = extractContactMarkers(rawText);
 
   return { kind: "stack-analysis", content, extractedEmail: email, extractedPhone: phone };

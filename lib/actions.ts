@@ -173,22 +173,40 @@ export async function approveAndSendDraft(businessId: string, draftId: string) {
     .eq("id", draftId)
     .single();
   if (draftErr) throw draftErr;
-  if (!draft.contacts?.email) {
+
+  // A draft generated before a contact was found (or generated for a
+  // different contact than intended) has no email of its own to fall back
+  // on - use the business's contact on file instead rather than treating
+  // "no contact linked to this draft yet" as permanently unsendable.
+  let contactEmail = draft.contacts?.email as string | null | undefined;
+  let contactId = draft.contact_id as string | null;
+  if (!contactEmail) {
+    const { data: fallbackContact } = await db
+      .from("contacts")
+      .select("id, email")
+      .eq("business_id", businessId)
+      .not("email", "is", null)
+      .limit(1)
+      .maybeSingle();
+    contactEmail = fallbackContact?.email;
+    contactId = fallbackContact?.id ?? contactId;
+  }
+  if (!contactEmail) {
     throw new Error("This draft has no contact email on file yet — add one before sending.");
   }
 
-  await sendGmail({ to: draft.contacts.email, subject: draft.subject, body: draft.body });
+  await sendGmail({ to: contactEmail, subject: draft.subject, body: draft.body });
 
   const now = new Date().toISOString();
   const { error: updateErr } = await db
     .from("drafts")
-    .update({ status: "sent", reviewed_at: now, sent_at: now })
+    .update({ status: "sent", reviewed_at: now, sent_at: now, contact_id: contactId })
     .eq("id", draftId);
   if (updateErr) throw updateErr;
 
   const { error: commErr } = await db.from("communications").insert({
     business_id: businessId,
-    contact_id: draft.contact_id,
+    contact_id: contactId,
     draft_id: draftId,
     direction: "outbound",
     channel: "email",

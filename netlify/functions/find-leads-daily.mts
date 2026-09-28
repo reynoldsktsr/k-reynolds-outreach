@@ -49,8 +49,16 @@ these already-tracked businesses: ${knownNames.length ? knownNames.join(", ") : 
     ],
   });
 
-  const textBlock = response.content.find((b) => b.type === "text");
-  if (!textBlock || textBlock.type !== "text") {
+  // With the web_search tool, a response can carry several text blocks
+  // interleaved with tool use/results (reasoning, then the real answer) -
+  // taking only the first one can silently grab commentary instead of the
+  // final JSON, making this look like it found nothing. Join them all.
+  const text = response.content
+    .filter((b) => b.type === "text")
+    .map((b) => b.text)
+    .join("\n\n");
+
+  if (!text) {
     console.error("No text response from Anthropic.");
     return;
   }
@@ -66,10 +74,10 @@ these already-tracked businesses: ${knownNames.length ? knownNames.join(", ") : 
   }>;
 
   try {
-    const match = textBlock.text.match(/\[[\s\S]*\]/);
-    candidates = JSON.parse(match ? match[0] : textBlock.text);
+    const match = text.match(/\[[\s\S]*\]/);
+    candidates = JSON.parse(match ? match[0] : text);
   } catch (err) {
-    console.error("Couldn't parse candidate JSON:", err, textBlock.text.slice(0, 500));
+    console.error("Couldn't parse candidate JSON:", err, text.slice(0, 500));
     return;
   }
 

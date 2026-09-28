@@ -8,6 +8,8 @@ import {
   generateReport,
   findContact,
   generatePitch,
+  approveAndSendDraft,
+  discardDraft,
 } from "@/lib/actions";
 import { pickDemoSite } from "@/lib/analysis";
 import { DomainCheck } from "./domain-check";
@@ -83,6 +85,16 @@ export default async function BusinessDetailPage({
   async function runPitchGeneration() {
     "use server";
     await generatePitch(businessId);
+  }
+
+  async function sendDraft(formData: FormData) {
+    "use server";
+    await approveAndSendDraft(businessId, String(formData.get("draftId")));
+  }
+
+  async function discardThisDraft(formData: FormData) {
+    "use server";
+    await discardDraft(businessId, String(formData.get("draftId")));
   }
 
   const demoSite = pickDemoSite(business.category);
@@ -327,23 +339,59 @@ export default async function BusinessDetailPage({
         </details>
       </section>
 
+      {business.drafts.some((d) => d.status === "pending") && (
+        <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+          <h2 className="text-base font-semibold">Pending drafts</h2>
+          <p className="mt-1 text-sm text-neutral-600">
+            Read the whole thing before sending — this is the actual email, not a preview.
+          </p>
+          <ul className="mt-4 flex flex-col gap-4">
+            {business.drafts
+              .filter((d) => d.status === "pending")
+              .map((d) => (
+                <li key={d.id} className="rounded-lg border border-neutral-200 p-4">
+                  <p className="text-sm font-semibold text-neutral-900">{d.subject}</p>
+                  <p className="mt-2 whitespace-pre-wrap text-[15px] leading-relaxed text-neutral-800">
+                    {d.body}
+                  </p>
+                  <div className="mt-3 flex gap-2">
+                    <form action={sendDraft}>
+                      <input type="hidden" name="draftId" value={d.id} />
+                      <SubmitButton
+                        idleLabel={business.contacts[0]?.email ? "Approve & send" : "No contact email on file"}
+                        pendingLabel="Sending…"
+                        disabled={!business.contacts[0]?.email}
+                      />
+                    </form>
+                    <form action={discardThisDraft}>
+                      <input type="hidden" name="draftId" value={d.id} />
+                      <SubmitButton idleLabel="Discard" pendingLabel="Discarding…" variant="secondary" />
+                    </form>
+                  </div>
+                </li>
+              ))}
+          </ul>
+        </section>
+      )}
+
       <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-        <h2 className="text-base font-semibold">Drafts &amp; history</h2>
+        <h2 className="text-base font-semibold">History</h2>
         <ul className="mt-4 flex flex-col gap-2 text-sm">
-          {business.drafts.map((d) => (
-            <li key={d.id} className="rounded-lg border border-neutral-200 px-4 py-2.5">
-              <span className="font-medium text-neutral-900">{d.subject}</span>{" "}
-              <span className="text-neutral-500">({d.status})</span>
-            </li>
-          ))}
+          {business.drafts
+            .filter((d) => d.status !== "pending")
+            .map((d) => (
+              <li key={d.id} className="rounded-lg border border-neutral-200 px-4 py-2.5">
+                <span className="font-medium text-neutral-900">{d.subject}</span>{" "}
+                <span className="text-neutral-500">({d.status})</span>
+              </li>
+            ))}
           {business.communications.map((c) => (
             <li key={`c${c.id}`} className="rounded-lg border border-neutral-200 px-4 py-2.5 text-neutral-700">
               Sent {new Date(c.occurredAt).toLocaleString()}: {c.subject}
             </li>
           ))}
-          {business.drafts.length === 0 && business.communications.length === 0 && (
-            <li className="text-neutral-500">Nothing yet.</li>
-          )}
+          {business.drafts.filter((d) => d.status !== "pending").length === 0 &&
+            business.communications.length === 0 && <li className="text-neutral-500">Nothing yet.</li>}
         </ul>
       </section>
     </div>
