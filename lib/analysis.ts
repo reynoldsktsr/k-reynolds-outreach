@@ -123,7 +123,21 @@ export type ContactDiscoveryResult = {
   name: string | null;
 };
 
+// e2e tests exercise the full generate -> review -> edit -> send UI flow
+// without spending real Anthropic API credits or depending on live web
+// search results - only ever set in the test runner's env.
+const TEST_MODE = process.env.E2E_TEST_MODE === "1";
+
 export async function discoverContact(business: Business): Promise<ContactDiscoveryResult> {
+  if (TEST_MODE) {
+    return {
+      summary: `[test mode] Simulated contact search for ${business.name}.`,
+      email: "test-contact@example.com",
+      phone: "555-0100",
+      name: "Test Contact",
+    };
+  }
+
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set.");
   const anthropic = new Anthropic({ apiKey });
@@ -246,6 +260,14 @@ export async function generatePitchEmail(
   analysisContent: string | null,
   contactName: string | null,
 ): Promise<{ subject: string; body: string }> {
+  if (TEST_MODE) {
+    const demoSite = pickDemoSite(business.category);
+    return {
+      subject: `[test mode] Quick note about ${business.name}`,
+      body: `<p>[test mode] Simulated pitch email for ${business.name}. See <a href="${demoSite.url}">${demoSite.label} demo</a>.</p>`,
+    };
+  }
+
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set.");
   const anthropic = new Anthropic({ apiKey });
@@ -284,6 +306,22 @@ ${analysisContent ?? business.gapSummary ?? "No detailed analysis on file yet - 
 }
 
 export async function analyzeBusiness(business: Business): Promise<AnalysisResult> {
+  if (TEST_MODE) {
+    return business.website
+      ? {
+          kind: "stack-analysis",
+          content: `[test mode] Simulated stack analysis for ${business.name}.`,
+          extractedEmail: null,
+          extractedPhone: null,
+        }
+      : {
+          kind: "no-site-pitch",
+          content: `[test mode] Simulated no-site pitch report for ${business.name}.`,
+          extractedEmail: null,
+          extractedPhone: null,
+        };
+  }
+
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set.");
   const anthropic = new Anthropic({ apiKey });

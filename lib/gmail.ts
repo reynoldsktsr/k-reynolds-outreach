@@ -136,6 +136,13 @@ function toRawMessage(to: string, subject: string, body: string, fromEmail: stri
 }
 
 export async function sendGmail({ to, subject, body }: { to: string; subject: string; body: string }) {
+  // e2e tests exercise the real approve-and-send flow (status transitions,
+  // communications log) without ever hitting the real Gmail API or requiring
+  // a connected OAuth account - only ever set in the test runner's env.
+  if (process.env.E2E_TEST_MODE === "1") {
+    return;
+  }
+
   const { data: record } = await supabaseAdmin()
     .from("oauth_tokens")
     .select("refresh_token, account_email")

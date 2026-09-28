@@ -1,23 +1,28 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { RichTextEditor } from "./rich-text-editor";
+import { RichTextEditor } from "../businesses/[id]/rich-text-editor";
 import { updateDraft, approveAndSendDraft, discardDraft } from "@/lib/actions";
 import { useServerAction } from "@/lib/use-action";
 
-export function PendingDraftCard({
+export function QueueDraftCard({
   businessId,
+  businessName,
+  contactLabel,
+  contactEmail,
   draftId,
   initialSubject,
   initialBody,
-  canSend,
 }: {
   businessId: string;
+  businessName: string;
+  contactLabel: string;
+  contactEmail: string | null;
   draftId: string;
   initialSubject: string;
   initialBody: string;
-  canSend: boolean;
 }) {
   const [subject, setSubject] = useState(initialSubject);
   const [body, setBody] = useState(initialBody);
@@ -59,14 +64,24 @@ export function PendingDraftCard({
   }
 
   return (
-    <li className="rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
+    <div className="card p-6">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <Link href={`/businesses/${businessId}`} className="font-semibold text-neutral-900 hover:underline dark:text-neutral-100">
+            {businessName}
+          </Link>
+          <p className="text-sm text-neutral-600 dark:text-neutral-400">
+            To: {contactLabel} {contactEmail ? `<${contactEmail}>` : "(no email on file)"}
+          </p>
+        </div>
+      </div>
       <input
         value={subject}
         onChange={(e) => {
           setSubject(e.target.value);
           setDirty(true);
         }}
-        className="input text-sm font-semibold text-neutral-900 dark:text-neutral-100"
+        className="input mt-4 text-sm font-semibold text-neutral-900 dark:text-neutral-100"
       />
       <div className="mt-2">
         <RichTextEditor
@@ -77,9 +92,9 @@ export function PendingDraftCard({
           }}
         />
       </div>
-      <div className="mt-3 flex items-center gap-2">
-        <button onClick={send} disabled={isPending || !canSend} className="btn-primary">
-          {isPending ? "Working…" : canSend ? "Approve & send" : "No contact email on file"}
+      <div className="mt-4 flex gap-2">
+        <button onClick={send} disabled={isPending || !contactEmail} className="btn-primary">
+          {isPending ? "Working…" : contactEmail ? "Approve & send" : "No contact email on file"}
         </button>
         <button onClick={discard} disabled={isPending} className="btn-secondary">
           Discard
@@ -88,6 +103,6 @@ export function PendingDraftCard({
           Save changes
         </button>
       </div>
-    </li>
+    </div>
   );
 }

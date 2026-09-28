@@ -2,16 +2,21 @@
 
 import { useState } from "react";
 import { checkDomains } from "@/lib/actions";
+import { useToast } from "@/components/toast";
 import type { DomainStatus } from "@/lib/domains";
 
 export function DomainCheck({ businessName }: { businessName: string }) {
   const [results, setResults] = useState<DomainStatus[] | null>(null);
   const [loading, setLoading] = useState(false);
+  const { showToast } = useToast();
 
   async function run() {
     setLoading(true);
     try {
       setResults(await checkDomains(businessName));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Something went wrong.";
+      showToast(`Couldn't check domains: ${message}`, "error");
     } finally {
       setLoading(false);
     }
@@ -19,11 +24,7 @@ export function DomainCheck({ businessName }: { businessName: string }) {
 
   return (
     <div>
-      <button
-        onClick={run}
-        disabled={loading}
-        className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium hover:bg-neutral-100 disabled:opacity-50"
-      >
+      <button onClick={run} disabled={loading} className="btn-secondary">
         {loading ? "Checking…" : "Suggest & check domains"}
       </button>
 
@@ -34,10 +35,10 @@ export function DomainCheck({ businessName }: { businessName: string }) {
               key={r.domain}
               className={`rounded-md border px-2.5 py-1.5 ${
                 r.available === true
-                  ? "border-green-200 bg-green-50 text-green-800"
+                  ? "border-green-200 bg-green-50 text-green-800 dark:border-green-900 dark:bg-green-950 dark:text-green-300"
                   : r.available === false
-                    ? "border-neutral-200 bg-neutral-50 text-neutral-400 line-through"
-                    : "border-neutral-200 bg-neutral-50 text-neutral-500"
+                    ? "border-neutral-200 bg-neutral-50 text-neutral-400 line-through dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-600"
+                    : "border-neutral-200 bg-neutral-50 text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400"
               }`}
             >
               {r.domain}

@@ -22,7 +22,7 @@ export function RichTextEditor({
     editorProps: {
       attributes: {
         class:
-          "prose prose-sm prose-neutral max-w-none min-h-[180px] rounded-b-md border border-t-0 border-neutral-300 px-3 py-2 focus:outline-none",
+          "prose prose-sm prose-neutral dark:prose-invert max-w-none min-h-[180px] rounded-b-md border border-t-0 border-neutral-300 bg-white px-3 py-2 focus:outline-none dark:border-neutral-700 dark:bg-neutral-900",
       },
     },
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
@@ -51,7 +51,7 @@ export function RichTextEditor({
 
   return (
     <div>
-      <div className="flex gap-1 rounded-t-md border border-neutral-300 bg-neutral-50 p-1.5">
+      <div className="flex gap-1 rounded-t-md border border-neutral-300 bg-neutral-50 p-1.5 dark:border-neutral-700 dark:bg-neutral-800">
         <ToolbarButton active={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()}>
           B
         </ToolbarButton>
@@ -84,7 +84,9 @@ function ToolbarButton({
       type="button"
       onClick={onClick}
       className={`rounded px-2 py-1 text-xs font-medium ${
-        active ? "bg-neutral-900 text-white" : "text-neutral-600 hover:bg-neutral-200"
+        active
+          ? "bg-neutral-900 text-white dark:bg-accent-600"
+          : "text-neutral-600 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-700"
       }`}
     >
       {children}

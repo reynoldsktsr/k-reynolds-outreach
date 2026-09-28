@@ -8,35 +8,20 @@ export default async function LoginPage({
   const params = await searchParams;
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6">
-      <div className="rounded-xl border border-neutral-200 bg-white p-8 shadow-sm">
-        <h1 className="text-xl font-semibold tracking-tight">Outreach</h1>
-        <p className="mt-1.5 text-sm text-neutral-600">Sign in to continue.</p>
+    <div className="mx-auto flex min-h-screen max-w-sm flex-col justify-center bg-neutral-50 px-6 dark:bg-neutral-950">
+      <div className="card p-8">
+        <h1 className="text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">Outreach</h1>
+        <p className="mt-1.5 text-sm text-neutral-600 dark:text-neutral-400">Sign in to continue.</p>
         {params.error && (
-          <p className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <p className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
             {decodeURIComponent(params.error)}
           </p>
         )}
         <form action={signIn} className="mt-5 flex flex-col gap-2.5">
           <input type="hidden" name="next" value={params.next ?? "/"} />
-          <input
-            type="email"
-            name="email"
-            placeholder="Email"
-            autoFocus
-            required
-            className="rounded-md border border-neutral-300 px-3 py-2 text-sm"
-          />
-          <input
-            type="password"
-            name="password"
-            placeholder="Password"
-            required
-            className="rounded-md border border-neutral-300 px-3 py-2 text-sm"
-          />
-          <button className="mt-1 rounded-md bg-neutral-900 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-700">
-            Sign in
-          </button>
+          <input type="email" name="email" placeholder="Email" autoFocus required className="input" />
+          <input type="password" name="password" placeholder="Password" required className="input" />
+          <button className="btn-primary mt-1">Sign in</button>
         </form>
       </div>
     </div>
