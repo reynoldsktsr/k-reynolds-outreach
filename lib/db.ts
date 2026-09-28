@@ -33,7 +33,7 @@ export type Communication = {
 export type Report = {
   id: string;
   businessId: string;
-  kind: "no-site-pitch" | "stack-analysis";
+  kind: "no-site-pitch" | "stack-analysis" | "contact-discovery";
   content: string;
   createdAt: string;
 };

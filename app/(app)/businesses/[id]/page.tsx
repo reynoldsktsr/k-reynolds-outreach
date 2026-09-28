@@ -1,30 +1,25 @@
 import { notFound } from "next/navigation";
 import { getBusiness, listReports } from "@/lib/db";
-import { createContact, createDraft, updateBusinessStatus, editBusiness, generateReport } from "@/lib/actions";
+import {
+  createContact,
+  createDraft,
+  updateBusinessStatus,
+  editBusiness,
+  generateReport,
+  findContact,
+  generatePitch,
+} from "@/lib/actions";
+import { pickDemoSite } from "@/lib/analysis";
 import { DomainCheck } from "./domain-check";
-import { AnalysisButton } from "./analysis-button";
+import { SubmitButton } from "./submit-button";
 import { ReportContent } from "./report-content";
 
 export const dynamic = "force-dynamic";
 
-const DEMO_SITES = [
-  {
-    label: "Coffee / retail / food service",
-    url: "https://k-reynolds-demo-coffee.netlify.app",
-  },
-  {
-    label: "Restaurant / reservations",
-    url: "https://k-reynolds-demo-restaurant.netlify.app",
-  },
-  {
-    label: "Salon / spa / appointment-based",
-    url: "https://k-reynolds-demo-booking.netlify.app",
-  },
-];
-
 const REPORT_LABELS: Record<string, string> = {
   "no-site-pitch": "Why they need a site",
   "stack-analysis": "Stack analysis",
+  "contact-discovery": "Contact search",
 };
 
 export default async function BusinessDetailPage({
@@ -79,6 +74,18 @@ export default async function BusinessDetailPage({
     "use server";
     await generateReport(businessId);
   }
+
+  async function runContactSearch() {
+    "use server";
+    await findContact(businessId);
+  }
+
+  async function runPitchGeneration() {
+    "use server";
+    await generatePitch(businessId);
+  }
+
+  const demoSite = pickDemoSite(business.category);
 
   return (
     <div className="flex flex-col gap-8">
@@ -193,7 +200,10 @@ export default async function BusinessDetailPage({
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold">Analysis reports</h2>
           <form action={runAnalysis}>
-            <AnalysisButton hasWebsite={!!business.website} />
+            <SubmitButton
+              idleLabel={business.website ? "Run stack analysis" : "Generate pitch report"}
+              pendingLabel="Analyzing…"
+            />
           </form>
         </div>
         <p className="mt-1 text-sm text-neutral-600">
@@ -216,10 +226,20 @@ export default async function BusinessDetailPage({
       </section>
 
       <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-        <h2 className="text-base font-semibold">Contacts</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-semibold">Contacts</h2>
+          {business.contacts.length === 0 && (
+            <form action={runContactSearch}>
+              <SubmitButton idleLabel="Find contact" pendingLabel="Searching…" variant="secondary" />
+            </form>
+          )}
+        </div>
         <ul className="mt-4 flex flex-col gap-2 text-sm">
           {business.contacts.length === 0 && (
-            <li className="text-neutral-500">No contacts on file yet.</li>
+            <li className="text-neutral-500">
+              No contacts on file yet. &quot;Find contact&quot; searches their public listings (Google/Yelp/
+              Facebook/Instagram) for an email, phone, or owner name.
+            </li>
           )}
           {business.contacts.map((c) => (
             <li key={c.id} className="rounded-lg border border-neutral-200 px-4 py-2.5">
@@ -259,21 +279,26 @@ export default async function BusinessDetailPage({
       </section>
 
       <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-        <h2 className="text-base font-semibold">New draft</h2>
-
-        <div className="mt-3 rounded-lg border border-neutral-200 bg-neutral-50 p-3 text-xs text-neutral-600">
-          <span className="font-medium text-neutral-700">Reference to link in the email:</span>{" "}
-          {DEMO_SITES.map((d, i) => (
-            <span key={d.url}>
-              {i > 0 && " · "}
-              <a href={d.url} target="_blank" rel="noopener noreferrer" className="underline hover:text-neutral-900">
-                {d.label}
-              </a>
-            </span>
-          ))}
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-semibold">New draft</h2>
+          <form action={runPitchGeneration}>
+            <SubmitButton idleLabel="Generate pitch email" pendingLabel="Writing…" />
+          </form>
         </div>
+        <p className="mt-1 text-sm text-neutral-600">
+          Writes a personal, non-templated draft grounded in the latest analysis on this business — noticed,
+          suggested, how you&apos;d help, then a low-pressure invite to talk. Auto-includes the{" "}
+          <a href={demoSite.url} target="_blank" rel="noopener noreferrer" className="underline hover:text-neutral-900">
+            {demoSite.label} demo
+          </a>{" "}
+          as their closest example. Lands in the queue below — nothing sends until you approve it.
+        </p>
 
-        <form action={addDraft} className="mt-4 flex flex-col gap-2.5 text-sm">
+        <details className="mt-4">
+          <summary className="cursor-pointer text-sm font-medium text-neutral-500 hover:text-neutral-800">
+            Or write one manually
+          </summary>
+          <form action={addDraft} className="mt-3 flex flex-col gap-2.5 text-sm">
           <select name="contactId" className="rounded-md border border-neutral-300 px-3 py-2">
             <option value="">No contact selected</option>
             {business.contacts.map((c) => (
@@ -298,7 +323,8 @@ export default async function BusinessDetailPage({
           <button className="self-start rounded-md bg-neutral-900 px-4 py-2 font-medium text-white hover:bg-neutral-700">
             Save to review queue
           </button>
-        </form>
+          </form>
+        </details>
       </section>
 
       <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">

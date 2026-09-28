@@ -3,8 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { sendGmail } from "@/lib/gmail";
-import { getBusiness, createReport, updateBusinessFields } from "@/lib/db";
-import { analyzeBusiness } from "@/lib/analysis";
+import { getBusiness, createReport, listReports, updateBusinessFields } from "@/lib/db";
+import { analyzeBusiness, discoverContact, generatePitchEmail } from "@/lib/analysis";
 import { checkDomainAvailability, type DomainStatus } from "@/lib/domains";
 
 export async function updateBusinessStatus(businessId: string, status: string) {
@@ -38,6 +38,56 @@ export async function generateReport(businessId: string) {
 
 export async function checkDomains(businessName: string): Promise<DomainStatus[]> {
   return checkDomainAvailability(businessName);
+}
+
+export async function findContact(businessId: string) {
+  const business = await getBusiness(businessId);
+  if (!business) throw new Error("Business not found");
+
+  const result = await discoverContact(business);
+  await createReport(businessId, "contact-discovery", result.summary);
+
+  if (business.contacts.length === 0 && (result.email || result.phone || result.name)) {
+    const { error } = await supabaseAdmin().from("contacts").insert({
+      business_id: businessId,
+      name: result.name,
+      email: result.email,
+      phone: result.phone,
+    });
+    if (error) throw error;
+  }
+
+  revalidatePath(`/businesses/${businessId}`);
+}
+
+export async function generatePitch(businessId: string) {
+  const business = await getBusiness(businessId);
+  if (!business) throw new Error("Business not found");
+
+  const reports = await listReports(businessId);
+  const latestAnalysis = reports.find((r) => r.kind === "no-site-pitch" || r.kind === "stack-analysis");
+  const contact = business.contacts[0] ?? null;
+
+  const { subject, body } = await generatePitchEmail(business, latestAnalysis?.content ?? null, contact?.name ?? null);
+
+  const { error: draftErr } = await supabaseAdmin().from("drafts").insert({
+    business_id: businessId,
+    contact_id: contact?.id ?? null,
+    subject,
+    body,
+    status: "pending",
+  });
+  if (draftErr) throw draftErr;
+
+  const { error: bizErr } = await supabaseAdmin()
+    .from("businesses")
+    .update({ status: "drafted", updated_at: new Date().toISOString() })
+    .eq("id", businessId);
+  if (bizErr) throw bizErr;
+
+  revalidatePath("/queue");
+  revalidatePath("/");
+  revalidatePath(`/businesses/${businessId}`);
 }
 
 export async function editBusiness(

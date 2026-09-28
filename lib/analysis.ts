@@ -81,6 +81,173 @@ export type AnalysisResult = {
   extractedPhone: string | null;
 };
 
+const CONTACT_DISCOVERY_SYSTEM = `You are researching public contact information for a specific local \
+business, to support a freelance web developer's respectful, low-pressure outreach - never a mass-blast. \
+Search for the business's Google Business Profile, Yelp listing, Facebook page, Instagram, or any local press/ \
+directory mention. Only report what you can actually verify from search results - never invent an email, \
+phone number, or owner/manager name, even a plausible-sounding one.
+
+End your findings with these lines, using this exact format, omitting any you didn't find:
+CONTACT_EMAIL: <email>
+CONTACT_PHONE: <phone>
+CONTACT_NAME: <owner or manager name, if a specific person is named anywhere>
+CONFIDENCE: <one line: what you found, where, and how sure you are>
+
+Before those lines, write 2-3 sentences summarizing what you searched and found (or didn't). Be honest if you \
+came up empty - that's a valid, useful result.`;
+
+export type ContactDiscoveryResult = {
+  summary: string;
+  email: string | null;
+  phone: string | null;
+  name: string | null;
+};
+
+export async function discoverContact(business: Business): Promise<ContactDiscoveryResult> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set.");
+  const anthropic = new Anthropic({ apiKey });
+
+  const response = await anthropic.messages.create({
+    model: "claude-sonnet-5",
+    max_tokens: 1000,
+    system: CONTACT_DISCOVERY_SYSTEM,
+    tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 6 }],
+    messages: [
+      {
+        role: "user",
+        content: `Business: ${business.name}
+Category: ${business.category ?? "unknown"}
+City: ${business.city ?? "unknown"}
+Address: ${business.address ?? "unknown"}`,
+      },
+    ],
+  });
+
+  const textBlock = response.content.find((b) => b.type === "text");
+  const rawText = textBlock?.type === "text" ? textBlock.text : "";
+
+  const emailMatch = rawText.match(/^CONTACT_EMAIL:\s*(.+)$/m);
+  const phoneMatch = rawText.match(/^CONTACT_PHONE:\s*(.+)$/m);
+  const nameMatch = rawText.match(/^CONTACT_NAME:\s*(.+)$/m);
+  const confidenceMatch = rawText.match(/^CONFIDENCE:\s*(.+)$/m);
+
+  const summary = rawText
+    .replace(/^CONTACT_EMAIL:.*$/m, "")
+    .replace(/^CONTACT_PHONE:.*$/m, "")
+    .replace(/^CONTACT_NAME:.*$/m, "")
+    .replace(/^CONFIDENCE:.*$/m, "")
+    .trim();
+
+  return {
+    summary: confidenceMatch ? `${summary}\n\n${confidenceMatch[0]}` : summary,
+    email: emailMatch ? emailMatch[1].trim() : null,
+    phone: phoneMatch ? phoneMatch[1].trim() : null,
+    name: nameMatch ? nameMatch[1].trim() : null,
+  };
+}
+
+const DEMO_SITES = [
+  {
+    label: "coffee shop",
+    url: "https://k-reynolds-demo-coffee.netlify.app",
+    keywords: ["coffee", "cafe", "café", "bakery", "record", "music", "clothing", "jewel", "florist", "flower", "retail", "furrier", "shop", "store"],
+  },
+  {
+    label: "restaurant",
+    url: "https://k-reynolds-demo-restaurant.netlify.app",
+    keywords: ["restaurant", "udon", "dining", "eatery", "bistro", "kitchen", "food"],
+  },
+  {
+    label: "salon/spa/booking",
+    url: "https://k-reynolds-demo-booking.netlify.app",
+    keywords: ["salon", "spa", "repair", "watch", "appointment", "massage", "barber", "fitness", "studio"],
+  },
+] as const;
+
+export function pickDemoSite(category: string | null): { label: string; url: string } {
+  const haystack = (category ?? "").toLowerCase();
+  for (const site of DEMO_SITES) {
+    if (site.keywords.some((k) => haystack.includes(k))) {
+      return { label: site.label, url: site.url };
+    }
+  }
+  // Default to the commerce-flavored demo - most local businesses are
+  // closer to "sell something" than the other two categories.
+  return { label: DEMO_SITES[0].label, url: DEMO_SITES[0].url };
+}
+
+const PITCH_EMAIL_SYSTEM = `You are a freelance web DEVELOPER (not a designer) writing a first-contact email \
+to a local business you have not talked to before. You build and fix the functional/technical side of \
+websites - carts, checkouts, bookings, backends, automation, integrations - on whatever platform fits, \
+including standing up a whole web presence from scratch (Squarespace for something fast, or a custom site you \
+host and manage long-term) for a business that has nothing yet. You never pitch a redesign of a site that \
+already works.
+
+This is not a mass-blast template. Write like you actually looked at their business and are talking to them \
+directly, in a warm, low-pressure, first-person voice - never agency copy, never "Dear Business Owner." \
+Address them by name only if a real name was given; otherwise use the business name naturally. Follow this \
+shape, in your own words, not as literal headers:
+1. Something specific you noticed about their business (grounded only in the facts you're given - never invent \
+detail).
+2. What you'd suggest, concretely.
+3. How you'd help - mention it could be a fast, low-cost Squarespace-style setup or a custom build you'd host \
+and manage for them long-term, whichever fits what you noticed. Frame this as a small, low-cost start to an \
+ongoing relationship, not a big project.
+4. A closing line inviting a real conversation to hear their side of it - not a hard close, not "let's hop on \
+a call to discuss next steps."
+
+Naturally include this example link once, where it fits: {{DEMO_URL}} - framed as "here's a quick example of \
+what that could look like," not a hard sell.
+
+Output exactly two parts, in this order, nothing else:
+SUBJECT: <subject line>
+BODY:
+<the email body>`;
+
+export async function generatePitchEmail(
+  business: Business,
+  analysisContent: string | null,
+  contactName: string | null,
+): Promise<{ subject: string; body: string }> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set.");
+  const anthropic = new Anthropic({ apiKey });
+
+  const demoSite = pickDemoSite(business.category);
+  const system = PITCH_EMAIL_SYSTEM.replace("{{DEMO_URL}}", demoSite.url);
+
+  const response = await anthropic.messages.create({
+    model: "claude-sonnet-5",
+    max_tokens: 900,
+    system,
+    messages: [
+      {
+        role: "user",
+        content: `Business: ${business.name}
+Category: ${business.category ?? "unknown"}
+City: ${business.city ?? "unknown"}
+Contact name (use only if given): ${contactName ?? "not known - address the business itself"}
+Website: ${business.website ?? "none - they don't have one yet"}
+
+What was actually found about them:
+${analysisContent ?? business.gapSummary ?? "No detailed analysis on file yet - keep this general but honest."}`,
+      },
+    ],
+  });
+
+  const textBlock = response.content.find((b) => b.type === "text");
+  const rawText = textBlock?.type === "text" ? textBlock.text : "";
+
+  const subjectMatch = rawText.match(/^SUBJECT:\s*(.+)$/m);
+  const bodyMatch = rawText.match(/^BODY:\s*\n?([\s\S]*)$/m);
+
+  return {
+    subject: subjectMatch ? subjectMatch[1].trim() : `Quick note about ${business.name}`,
+    body: bodyMatch ? bodyMatch[1].trim() : rawText.trim(),
+  };
+}
+
 export async function analyzeBusiness(business: Business): Promise<AnalysisResult> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set.");
